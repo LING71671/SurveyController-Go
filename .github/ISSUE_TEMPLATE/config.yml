@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全报告
+    url: https://github.com/hungryM0/SurveyController-go/security
+    about: 请不要在公开议题中发布敏感安全细节。

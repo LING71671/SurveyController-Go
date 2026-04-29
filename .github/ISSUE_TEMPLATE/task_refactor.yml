@@ -1,0 +1,27 @@
+name: 任务或重构
+description: 跟踪非用户功能类工程工作。
+title: "[任务]: "
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标
+      description: 要改什么，为什么改？
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围
+      description: 哪些在范围内，哪些不在范围内？
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: 检查项
+      placeholder: |
+        - go test ./...
+        - go vet ./...
+    validations:
+      required: true
