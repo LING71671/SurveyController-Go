@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"github.com/LING71671/SurveyController-go/internal/apperr"
 	"github.com/LING71671/SurveyController-go/internal/engine"
 	"github.com/LING71671/SurveyController-go/internal/logging"
 	"github.com/LING71671/SurveyController-go/internal/provider"
@@ -11,13 +12,15 @@ func (s *RunState) RecordSubmissionResult(workerID int, result engine.Submission
 	case result.Success:
 		s.RecordSuccess(workerID)
 	case result.Error != nil:
-		s.RecordFailure(workerID, result.Message)
+		code, _ := apperr.CodeOf(result.Error)
+		s.RecordFailureWithCode(workerID, result.Message, code)
 	default:
 		s.SetWorkerStatus(workerID, WorkerStatusRunning, result.Message)
 	}
 
 	if result.ShouldStop {
-		s.RequestStop(result.Message)
+		code, _ := apperr.CodeOf(result.Error)
+		s.RequestStopWithCode(result.Message, code)
 	}
 }
 
@@ -34,6 +37,10 @@ func EventForSubmissionResult(workerID int, result engine.SubmissionResult) logg
 			"should_stop":         result.ShouldStop,
 			"should_rotate_proxy": result.ShouldRotateProxy,
 		},
+	}
+	if code, ok := apperr.CodeOf(result.Error); ok {
+		event.Fields["error_code"] = string(code)
+		event.Fields["failure_reason"] = string(code)
 	}
 
 	switch {
@@ -56,4 +63,21 @@ func messageOrDefault(message string, fallback string) string {
 		return fallback
 	}
 	return message
+}
+
+func errorCode(err error) apperr.Code {
+	code, _ := apperr.CodeOf(err)
+	return code
+}
+
+func addErrorFields(event *logging.RunEvent, err error) {
+	code, ok := apperr.CodeOf(err)
+	if !ok {
+		return
+	}
+	if event.Fields == nil {
+		event.Fields = map[string]any{}
+	}
+	event.Fields["error_code"] = string(code)
+	event.Fields["failure_reason"] = string(code)
 }

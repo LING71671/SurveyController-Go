@@ -39,3 +39,16 @@ func TestIsCodeRejectsPlainError(t *testing.T) {
 		t.Fatalf("IsCode(plain error) = true, want false")
 	}
 }
+
+func TestCodeOf(t *testing.T) {
+	err := Wrap(CodeSubmitFailed, "submit", errors.New("transport"))
+
+	code, ok := CodeOf(err)
+	if !ok || code != CodeSubmitFailed {
+		t.Fatalf("CodeOf() = (%q, %v), want (%q, true)", code, ok, CodeSubmitFailed)
+	}
+
+	if code, ok := CodeOf(errors.New("plain")); ok || code != "" {
+		t.Fatalf("CodeOf(plain) = (%q, %v), want empty false", code, ok)
+	}
+}
