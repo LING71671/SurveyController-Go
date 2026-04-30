@@ -23,11 +23,50 @@ func FromSurveyDefinition(survey domain.SurveyDefinition) (RunConfig, error) {
 			ID:       strings.TrimSpace(question.ID),
 			Kind:     question.Kind.String(),
 			Required: question.Required,
-			Options:  map[string]any{},
+			Options:  defaultQuestionOptions(question),
 		})
 	}
 	if err := cfg.Validate(); err != nil {
 		return RunConfig{}, err
 	}
 	return cfg, nil
+}
+
+func defaultQuestionOptions(question domain.QuestionDefinition) map[string]any {
+	options := map[string]any{}
+	if len(question.Options) > 0 {
+		options["weights"] = defaultOptionWeights(question.Options)
+	}
+	if len(question.Rows) > 0 && len(question.Options) > 0 {
+		rows := make([]map[string]any, 0, len(question.Rows))
+		for _, row := range question.Rows {
+			rowID := strings.TrimSpace(row.ID)
+			if rowID == "" {
+				continue
+			}
+			rows = append(rows, map[string]any{
+				"row_id":  rowID,
+				"weights": defaultOptionWeights(question.Options),
+			})
+		}
+		if len(rows) > 0 {
+			options["matrix_weights"] = rows
+		}
+	}
+	return options
+}
+
+func defaultOptionWeights(options []domain.OptionDefinition) []map[string]any {
+	weights := make([]map[string]any, 0, len(options))
+	for _, option := range options {
+		optionID := strings.TrimSpace(option.ID)
+		if optionID == "" {
+			continue
+		}
+		weights = append(weights, map[string]any{
+			"option_id": optionID,
+			"weight":    1,
+		})
+	}
+	return weights
 }

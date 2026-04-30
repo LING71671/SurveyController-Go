@@ -20,6 +20,10 @@ func TestFromSurveyDefinitionBuildsDefaultRunConfig(t *testing.T) {
 				Title:    "Choose one",
 				Kind:     domain.QuestionKindSingle,
 				Required: true,
+				Options: []domain.OptionDefinition{
+					{ID: "a", Label: "A"},
+					{ID: "b", Label: "B"},
+				},
 			},
 			{
 				ID:     "q2",
@@ -51,6 +55,62 @@ func TestFromSurveyDefinitionBuildsDefaultRunConfig(t *testing.T) {
 	}
 	if cfg.Questions[0].Options == nil {
 		t.Fatalf("first question options = nil, want editable empty map")
+	}
+	weights, ok := cfg.Questions[0].Options["weights"].([]map[string]any)
+	if !ok {
+		t.Fatalf("weights = %#v, want generated option weight maps", cfg.Questions[0].Options["weights"])
+	}
+	if len(weights) != 2 || weights[0]["option_id"] != "a" || weights[0]["weight"] != 1 {
+		t.Fatalf("weights = %+v, want default weights for options", weights)
+	}
+	if len(cfg.Questions[1].Options) != 0 {
+		t.Fatalf("text question options = %+v, want empty options", cfg.Questions[1].Options)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("generated config did not validate: %v", err)
+	}
+}
+
+func TestFromSurveyDefinitionBuildsMatrixWeightSkeleton(t *testing.T) {
+	survey := domain.SurveyDefinition{
+		Provider: domain.ProviderTencent,
+		Title:    "Matrix survey",
+		URL:      "https://wj.qq.com/s2/example",
+		Questions: []domain.QuestionDefinition{
+			{
+				ID:     "matrix1",
+				Number: 1,
+				Title:  "Matrix question",
+				Kind:   domain.QuestionKindMatrix,
+				Rows: []domain.OptionDefinition{
+					{ID: "row1", Label: "Row 1"},
+					{ID: "row2", Label: "Row 2"},
+				},
+				Options: []domain.OptionDefinition{
+					{ID: "opt1", Label: "Option 1"},
+					{ID: "opt2", Label: "Option 2"},
+				},
+			},
+		},
+	}
+
+	cfg, err := FromSurveyDefinition(survey)
+	if err != nil {
+		t.Fatalf("FromSurveyDefinition() returned error: %v", err)
+	}
+	matrixWeights, ok := cfg.Questions[0].Options["matrix_weights"].([]map[string]any)
+	if !ok {
+		t.Fatalf("matrix_weights = %#v, want generated matrix weight maps", cfg.Questions[0].Options["matrix_weights"])
+	}
+	if len(matrixWeights) != 2 || matrixWeights[0]["row_id"] != "row1" {
+		t.Fatalf("matrix_weights = %+v, want row weights", matrixWeights)
+	}
+	rowWeights, ok := matrixWeights[0]["weights"].([]map[string]any)
+	if !ok {
+		t.Fatalf("row weights = %#v, want option weight maps", matrixWeights[0]["weights"])
+	}
+	if len(rowWeights) != 2 || rowWeights[1]["option_id"] != "opt2" || rowWeights[1]["weight"] != 1 {
+		t.Fatalf("row weights = %+v, want default option weights", rowWeights)
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("generated config did not validate: %v", err)
