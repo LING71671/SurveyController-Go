@@ -35,6 +35,7 @@ go test ./...
 go vet ./...
 go run ./cmd/surveyctl version
 go run ./cmd/surveyctl config validate examples/run.yaml
+go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl doctor
 go run ./cmd/surveyctl doctor browser
 ```
