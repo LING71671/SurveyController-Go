@@ -15,6 +15,19 @@ func TestCompilePlan(t *testing.T) {
 	cfg.Run.Target = 3
 	cfg.Run.Concurrency = 2
 	cfg.Run.Mode = engine.ModeBrowser
+	cfg.Run.FailureThreshold = 4
+	cfg.Run.FailStopEnabled = true
+	cfg.Run.Headless = false
+	cfg.Run.SubmitInterval = config.DurationRange{MinSeconds: 1, MaxSeconds: 2}
+	cfg.Run.AnswerDuration = config.DurationRange{MinSeconds: 10, MaxSeconds: 20}
+	cfg.Run.TimedMode = config.TimedModeConfig{Enabled: true, RefreshIntervalSeconds: 5}
+	cfg.Proxy = config.ProxyConfig{Enabled: true, Source: "custom", CustomAPI: "https://proxy.example/api", OccupyMinutes: 2}
+	cfg.ReverseFill = config.ReverseFillConfig{Enabled: true, SourcePath: "samples.xlsx", Format: "wjx_text", StartRow: 2}
+	cfg.RandomUA = config.RandomUAConfig{
+		Enabled: true,
+		Keys:    []string{"wechat", "pc"},
+		Ratios:  map[string]int{"wechat": 60, "pc": 40},
+	}
 	cfg.Questions = []config.QuestionConfig{
 		{
 			ID:       " q1 ",
@@ -41,6 +54,21 @@ func TestCompilePlan(t *testing.T) {
 	}
 	if plan.Target != 3 || plan.Concurrency != 2 {
 		t.Fatalf("target/concurrency = %d/%d, want 3/2", plan.Target, plan.Concurrency)
+	}
+	if plan.FailureThreshold != 4 || !plan.FailStopEnabled || plan.Headless {
+		t.Fatalf("runtime flags = %+v, want failure threshold 4 fail-stop true headless false", plan)
+	}
+	if plan.SubmitInterval.MinSeconds != 1 || plan.AnswerDuration.MaxSeconds != 20 || !plan.TimedMode.Enabled {
+		t.Fatalf("runtime timing = %+v/%+v/%+v, want configured timing", plan.SubmitInterval, plan.AnswerDuration, plan.TimedMode)
+	}
+	if !plan.Proxy.Enabled || plan.Proxy.Source != "custom" || plan.Proxy.OccupyMinutes != 2 {
+		t.Fatalf("Proxy = %+v, want custom proxy", plan.Proxy)
+	}
+	if !plan.ReverseFill.Enabled || plan.ReverseFill.Format != "wjx_text" {
+		t.Fatalf("ReverseFill = %+v, want configured reverse fill", plan.ReverseFill)
+	}
+	if !plan.RandomUA.Enabled || plan.RandomUA.Ratios["wechat"] != 60 {
+		t.Fatalf("RandomUA = %+v, want configured random ua", plan.RandomUA)
 	}
 	if len(plan.Questions) != 1 || plan.Questions[0].ID != "q1" {
 		t.Fatalf("Questions = %+v, want q1", plan.Questions)
@@ -70,6 +98,27 @@ func TestCompilePlanClonesQuestionOptions(t *testing.T) {
 	}
 }
 
+func TestCompilePlanClonesRandomUAConfig(t *testing.T) {
+	cfg := config.DefaultRunConfig()
+	cfg.Survey.URL = "https://example.com/survey"
+	cfg.Survey.Provider = "mock"
+	cfg.RandomUA = config.RandomUAConfig{
+		Enabled: true,
+		Keys:    []string{"wechat"},
+		Ratios:  map[string]int{"wechat": 100},
+	}
+
+	plan, err := CompilePlan(cfg)
+	if err != nil {
+		t.Fatalf("CompilePlan() returned error: %v", err)
+	}
+	cfg.RandomUA.Keys[0] = "pc"
+	cfg.RandomUA.Ratios["wechat"] = 1
+	if plan.RandomUA.Keys[0] != "wechat" || plan.RandomUA.Ratios["wechat"] != 100 {
+		t.Fatalf("compiled random ua changed after source mutation: %+v", plan.RandomUA)
+	}
+}
+
 func TestCompilePlanRejectsInvalidQuestion(t *testing.T) {
 	cfg := config.DefaultRunConfig()
 	cfg.Survey.URL = "https://example.com/survey"
@@ -92,6 +141,7 @@ func TestValidatePlanRejectsInvalidValues(t *testing.T) {
 		{name: "url", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", Target: 1, Concurrency: 1}, want: "url"},
 		{name: "target", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Concurrency: 1}, want: "target"},
 		{name: "concurrency", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1}, want: "concurrency"},
+		{name: "failure threshold", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1, Concurrency: 1, FailureThreshold: -1}, want: "failure threshold"},
 	}
 
 	for _, tt := range tests {

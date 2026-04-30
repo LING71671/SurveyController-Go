@@ -6,4 +6,30 @@ run:
   target: 1
   concurrency: 1
   mode: hybrid
+  failure_threshold: 1
+  fail_stop_enabled: true
+  headless: true
+  submit_interval:
+    min_seconds: 0
+    max_seconds: 0
+  answer_duration:
+    min_seconds: 0
+    max_seconds: 0
+  timed_mode:
+    enabled: false
+    refresh_interval_seconds: 3
+proxy:
+  enabled: false
+  source: default
+  occupy_minutes: 1
+reverse_fill:
+  enabled: false
+  format: auto
+  start_row: 1
+random_ua:
+  enabled: false
+  ratios:
+    wechat: 33
+    mobile: 33
+    pc: 34
 questions: []

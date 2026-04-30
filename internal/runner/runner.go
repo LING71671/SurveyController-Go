@@ -9,12 +9,21 @@ import (
 )
 
 type Plan struct {
-	Mode        engine.Mode
-	Provider    string
-	URL         string
-	Target      int
-	Concurrency int
-	Questions   []QuestionPlan
+	Mode             engine.Mode
+	Provider         string
+	URL              string
+	Target           int
+	Concurrency      int
+	FailureThreshold int
+	FailStopEnabled  bool
+	Headless         bool
+	SubmitInterval   config.DurationRange
+	AnswerDuration   config.DurationRange
+	TimedMode        config.TimedModeConfig
+	Proxy            config.ProxyConfig
+	ReverseFill      config.ReverseFillConfig
+	RandomUA         config.RandomUAConfig
+	Questions        []QuestionPlan
 }
 
 type QuestionPlan struct {
@@ -36,12 +45,21 @@ func CompilePlan(cfg config.RunConfig) (Plan, error) {
 	}
 
 	plan := Plan{
-		Mode:        cfg.Run.Mode,
-		Provider:    strings.TrimSpace(cfg.Survey.Provider),
-		URL:         strings.TrimSpace(cfg.Survey.URL),
-		Target:      cfg.Run.Target,
-		Concurrency: cfg.Run.Concurrency,
-		Questions:   make([]QuestionPlan, 0, len(cfg.Questions)),
+		Mode:             cfg.Run.Mode,
+		Provider:         strings.TrimSpace(cfg.Survey.Provider),
+		URL:              strings.TrimSpace(cfg.Survey.URL),
+		Target:           cfg.Run.Target,
+		Concurrency:      cfg.Run.Concurrency,
+		FailureThreshold: cfg.Run.FailureThreshold,
+		FailStopEnabled:  cfg.Run.FailStopEnabled,
+		Headless:         cfg.Run.Headless,
+		SubmitInterval:   cfg.Run.SubmitInterval,
+		AnswerDuration:   cfg.Run.AnswerDuration,
+		TimedMode:        cfg.Run.TimedMode,
+		Proxy:            cfg.Proxy,
+		ReverseFill:      cfg.ReverseFill,
+		RandomUA:         cloneRandomUAConfig(cfg.RandomUA),
+		Questions:        make([]QuestionPlan, 0, len(cfg.Questions)),
 	}
 	for _, question := range cfg.Questions {
 		if strings.TrimSpace(question.ID) == "" {
@@ -76,6 +94,9 @@ func (r *Runner) ValidatePlan(plan Plan) error {
 	if plan.Concurrency <= 0 {
 		return fmt.Errorf("concurrency must be greater than 0")
 	}
+	if plan.FailureThreshold < 0 {
+		return fmt.Errorf("failure threshold must not be negative")
+	}
 	return nil
 }
 
@@ -86,6 +107,20 @@ func cloneOptions(options map[string]any) map[string]any {
 	cloned := make(map[string]any, len(options))
 	for key, value := range options {
 		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneRandomUAConfig(cfg config.RandomUAConfig) config.RandomUAConfig {
+	cloned := cfg
+	if len(cfg.Keys) > 0 {
+		cloned.Keys = append([]string(nil), cfg.Keys...)
+	}
+	if len(cfg.Ratios) > 0 {
+		cloned.Ratios = make(map[string]int, len(cfg.Ratios))
+		for key, value := range cfg.Ratios {
+			cloned.Ratios[key] = value
+		}
 	}
 	return cloned
 }
