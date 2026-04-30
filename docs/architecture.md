@@ -2,7 +2,7 @@
 
 ## 目标
 
-SurveyController-go 是原 Python 版 SurveyController 的 Go 语言重写。当前阶段优先做 CLI 工具，目标是更轻、更快、更容易测试和部署。
+SurveyController-go 是原 Python 版 SurveyController 的 Go 语言重写。当前阶段优先做 CLI 工具，核心追求是高速、高效、轻量和高性能，并让项目更容易测试和部署。
 
 `v0.1` 只做项目初始化、规范、文档和最小 CLI，不实现真实问卷运行。三平台正式支持属于 `v1.0` 目标。
 
@@ -12,6 +12,9 @@ SurveyController-go 是原 Python 版 SurveyController 的 Go 语言重写。当
 - 先 provider 契约，再写具体平台。
 - 先解析和配置生成，再接真实运行。
 - 先纯函数测试，再做浏览器集成。
+- 性能和资源占用是核心设计目标，默认选择轻量实现和可测抽象。
+- 并发能力和内存占用要作为一等指标优化：worker、browser session、HTTP transport、parser cache 都必须可压测、可观测、可设置上限。
+- GUI 不进入 `v1.0`，后续轻量 GUI 也必须作为薄外壳复用 core/CLI。
 - 运行内核可选：`hybrid`、`browser`、`http`。
 - 平台验证、登录要求、反滥用页面必须停止并报告，不做绕过。
 
@@ -142,6 +145,14 @@ Runner 只处理任务生命周期：
 
 Runner 不应知道平台 DOM 选择器，也不应决定某题怎么点。
 
+Runner 的性能要求：
+
+- worker 数量必须受配置和资源池上限约束。
+- 热路径避免无界 goroutine、无界 channel 和无界 map 增长。
+- 事件输出不能阻塞提交主路径。
+- 运行状态快照要复制必要数据，避免暴露内部 map，同时控制快照频率。
+- 并发改动必须保留 `go test -race ./...` 回归。
+
 ## Engine 设计
 
 Engine 处理单份任务：
@@ -180,6 +191,7 @@ type BrowserSession interface {
 - 所有导航、等待、点击、输入都必须支持 context 超时。
 - 关闭动作使用 `defer`，必要时有兜底 kill，但不能成为常规路径。
 - 浏览器错误映射为稳定错误码。
+- 浏览器 session 是最重资源，必须通过池化、超时和显式关闭控制占用。
 
 ## HTTP 层
 
@@ -190,6 +202,7 @@ HTTP 层围绕 Go `net/http` 设计：
 - 支持请求记录和脱敏日志。
 - 支持 provider 注入平台专属 headers。
 - 支持 fixture 测试中的 fake client。
+- HTTP transport、cookie jar 和缓存需要有生命周期边界，避免长时间运行时内存泄漏。
 
 HTTP 快速路径必须通过 provider 能力声明开启。
 
@@ -206,6 +219,11 @@ HTTP 快速路径必须通过 provider 能力声明开启。
 - 反填映射。
 - 维度一致性。
 - 联合信效度计划。
+
+性能要求：
+
+- 热路径优先使用预编译计划，避免每次提交重复解析配置。
+- 大样本策略需要 benchmark，避免为单次抽样分配过多临时切片或 map。
 
 Provider 只负责“把答案填进去”，不负责“决定答案是什么”。
 
