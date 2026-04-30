@@ -1,0 +1,55 @@
+{
+  "id": "credamo-snapshot",
+  "title": "Credamo DOM 样例",
+  "url": "https://www.credamo.com/answer.html#/s/demo",
+  "questions": [
+    {
+      "question_id": "question-1",
+      "question_num": "Q1",
+      "title": "Q1 请选择使用场景",
+      "question_kind": "single",
+      "provider_type": "single",
+      "option_texts": ["学习", "测试"],
+      "required": true,
+      "page": 1
+    },
+    {
+      "question_id": "question-2",
+      "question_num": "Q2",
+      "title": "Q2 请选择使用工具",
+      "question_kind": "dropdown",
+      "provider_type": "dropdown",
+      "option_texts": ["浏览器", "HTTP", "混合"],
+      "page": 1
+    },
+    {
+      "question_id": "question-7",
+      "question_num": "Q7",
+      "title": "本题检测是否认真作答",
+      "title_full_text": "Q7 [单选题] 本题检测是否认真作答，请选 非常不满意",
+      "title_text": "本题检测是否认真作答，请选 非常不满意",
+      "question_kind": "single",
+      "provider_type": "single",
+      "option_texts": ["非常不满意", "不满意", "满意", "非常满意"],
+      "page": 2
+    },
+    {
+      "question_id": "question-8",
+      "question_num": "Q8",
+      "title": "Q8 请问100+100等于多少",
+      "question_kind": "single",
+      "provider_type": "single",
+      "option_texts": ["300", "200", "500", "600"],
+      "page": 2
+    },
+    {
+      "question_id": "question-10",
+      "question_num": "Q10",
+      "title": "Q10 本题检测是否认真作答，请输入：“你好”（仅输入引号内文字）",
+      "question_kind": "text",
+      "provider_type": "text",
+      "text_inputs": 1,
+      "page": 3
+    }
+  ]
+}

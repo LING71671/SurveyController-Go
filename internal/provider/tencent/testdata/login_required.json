@@ -1,5 +1,0 @@
-{
-  "code": 401,
-  "message": "login required",
-  "login_required": true
-}
