@@ -1,0 +1,88 @@
+name: 持续集成
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: 质量检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v5
+
+      - name: 安装 Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 检查格式
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            echo "$files"
+            exit 1
+          fi
+
+      - name: 运行 go vet
+        run: go vet ./...
+
+      - name: 运行测试
+        run: go test ./...
+
+      - name: 运行 staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+
+  race:
+    name: 竞态检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v5
+
+      - name: 安装 Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 运行竞态测试
+        run: go test -race ./...
+
+  build:
+    name: 构建
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v5
+
+      - name: 安装 Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 构建 CLI
+        run: go build ./cmd/surveyctl

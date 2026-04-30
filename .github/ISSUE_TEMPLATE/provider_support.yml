@@ -1,0 +1,44 @@
+name: 平台适配支持
+description: 跟踪某个平台的解析器或运行时工作。
+title: "[平台]: "
+body:
+  - type: dropdown
+    id: provider
+    attributes:
+      label: 平台
+      options:
+        - 问卷星
+        - 腾讯问卷
+        - Credamo 见数平台
+        - 其他
+    validations:
+      required: true
+  - type: dropdown
+    id: capability
+    attributes:
+      label: 能力
+      options:
+        - URL 识别
+        - 解析器
+        - 配置生成
+        - 浏览器运行时
+        - HTTP 运行时
+        - 混合运行时
+        - 测试
+        - 文档
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 详情
+      description: 请包含测试夹具预期、平台行为和已知限制。
+    validations:
+      required: true
+  - type: checkboxes
+    id: authorization
+    attributes:
+      label: 授权确认
+      options:
+        - label: 我确认提到的问卷或测试夹具可用于已授权的开发与测试。
+          required: true

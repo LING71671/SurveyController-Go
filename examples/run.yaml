@@ -1,0 +1,9 @@
+schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+questions: []

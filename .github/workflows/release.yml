@@ -1,0 +1,58 @@
+name: 发布构建
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-artifacts:
+    name: 构建产物
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v5
+
+      - name: 安装 Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 构建
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/LING71671/SurveyController-go/internal/version.Version=${GITHUB_REF_NAME} -X github.com/LING71671/SurveyController-go/internal/version.Commit=${GITHUB_SHA}" \
+            -o "dist/surveyctl-${GOOS}-${GOARCH}${{ matrix.ext }}" \
+            ./cmd/surveyctl
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: surveyctl-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*

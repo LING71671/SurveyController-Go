@@ -1,0 +1,39 @@
+name: 功能请求
+description: 提出一个新能力。
+title: "[功能]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题背景
+      description: 这个能力要解决什么用户问题？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 方案描述
+      description: 请描述你期望的行为。
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      options:
+        - CLI
+        - 配置
+        - 平台适配器
+        - 运行内核
+        - CI/CD
+        - 文档
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 怎样判断这个能力已经完成？
+    validations:
+      required: true

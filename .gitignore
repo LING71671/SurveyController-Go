@@ -1,0 +1,26 @@
+# Local editors and agents
+.idea/
+.vscode/
+.codex/
+.claude/
+*.code-workspace
+desktop.ini
+
+# Go build output
+/bin/
+/build/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Runtime files
+/configs/
+/logs/
+/.env
+/.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
