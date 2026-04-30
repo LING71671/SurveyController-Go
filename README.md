@@ -1,20 +1,32 @@
-# SurveyController-go
+# SurveyController-Go
 
-SurveyController-go 是 SurveyController 的 Go 语言重写版本，目标是做成轻量、高性能的命令行工具，用于获得授权的问卷自动化学习与测试。
+SurveyController-Go 是 SurveyController 的 Go 语言重写版本，目标是做成高速、高效、轻量、高性能的命令行和核心运行工具，用于获得授权的问卷自动化学习与测试。
 
 > 本项目仅供获得授权的学习与测试使用。请勿用于污染第三方问卷数据、绕过平台保护机制，或生成虚假答卷。
 
 ## 当前状态
 
-`v0.1` 是项目初始化版本：
+当前主线已经进入 `v0.9` 运行时预览阶段，正在围绕三平台解析、提交判定、runner 状态、worker pool 和执行事务骨架推进。
 
-- Go 模块和最小 `surveyctl` 命令行工具。
-- 原 Python 项目的探索结论已持久化到文档。
-- 架构与路线图文档。
-- GitHub 议题和拉取请求模板。
-- 覆盖格式检查、测试、`go vet`、竞态检查和跨平台构建的 CI。
+已完成的基础能力包括：
 
-三平台支持是 `v1.0` 目标。`v0.1` 只预留架构边界，不实现真实问卷运行能力。
+- CLI 基础命令、配置校验、doctor 检查。
+- 强类型问卷模型、provider registry、URL matcher。
+- 问卷星、腾讯问卷、Credamo 的 parser 原型和 fixture 回归。
+- 答案策略纯函数、运行计划、运行状态、worker pool。
+- HTTP client、解析缓存、浏览器抽象和 fake page。
+- provider 提交判定契约、engine submission result、runner 提交预览任务。
+- 跨平台 CI、`go vet`、`staticcheck`、race test。
+
+`v1.0` 目标是三平台解析、配置生成、基础运行、性能回归、测试和文档闭环，不包含 GUI。后续可以做轻量化 GUI，但必须作为 core/CLI 的薄外壳，不把业务逻辑塞进 UI。
+
+## 设计目标
+
+- **高速**：热路径优先预编译计划、复用资源和少分配。
+- **高效**：worker、browser session、HTTP transport、proxy/sample lease 都要有明确生命周期。
+- **轻量**：core 优先使用标准库和小接口，避免 GUI 或重量级桌面依赖进入核心。
+- **高性能**：并发和内存占用要有 benchmark、race 回归和资源上限。
+- **安全边界清晰**：登录、验证、风控、设备次数上限必须停止并报告，不做绕过。
 
 ## 快速开始
 
@@ -33,6 +45,8 @@ go run ./cmd/surveyctl doctor browser
 surveyctl v0.1.0
 ```
 
+版本命令当前仍使用基础 CLI 版本号；功能里程碑通过 Git tag 标记。
+
 ## 运行内核方向
 
 后续版本会支持三种可选运行内核：
@@ -45,6 +59,20 @@ surveyctl v0.1.0
 
 运行事件会同时支持人类可读文本和 JSON Lines。默认文本用于终端查看，JSON Lines 用于后续脚本、CI 和 UI 订阅。
 
+结构化事件会优先携带机器可读字段，例如提交状态、错误码、失败归因、是否停止、是否需要轮换代理。高并发运行时不能依赖解析人类文案做决策。
+
+## 开发节奏
+
+当前采用小步推进：
+
+1. 先开 issue 明确范围。
+2. 分支实现并补测试。
+3. 本地跑 `go test ./...`、`go vet ./...`、`staticcheck`、race test。
+4. 开 PR，等待 GitHub Actions 和 CodeRabbit。
+5. squash merge 后按里程碑打 tag。
+
+新功能进入 core 前要考虑并发、内存占用、资源上限和可测试性。
+
 ## 开发文档
 
 建议先阅读：
@@ -53,3 +81,4 @@ surveyctl v0.1.0
 - [架构说明](docs/architecture.md)
 - [路线图](docs/roadmap.md)
 - [原项目分析](docs/discovery/original-project-analysis.md)
+- [运行闭环对齐复盘](docs/discovery/original-runtime-alignment-2026-04-30.md)
