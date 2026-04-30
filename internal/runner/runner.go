@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/LING71671/SurveyController-go/internal/answer"
 	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/engine"
 )
@@ -27,10 +28,12 @@ type Plan struct {
 }
 
 type QuestionPlan struct {
-	ID       string
-	Kind     string
-	Required bool
-	Options  map[string]any
+	ID            string
+	Kind          string
+	Required      bool
+	Options       map[string]any
+	Weights       []answer.OptionWeight
+	MatrixWeights map[string][]answer.OptionWeight
 }
 
 type Runner struct{}
@@ -62,14 +65,25 @@ func CompilePlan(cfg config.RunConfig) (Plan, error) {
 		Questions:        make([]QuestionPlan, 0, len(cfg.Questions)),
 	}
 	for _, question := range cfg.Questions {
-		if strings.TrimSpace(question.ID) == "" {
+		questionID := strings.TrimSpace(question.ID)
+		if questionID == "" {
 			return Plan{}, fmt.Errorf("question id is required")
 		}
+		weights, err := config.QuestionOptionWeights(question)
+		if err != nil {
+			return Plan{}, fmt.Errorf("question %q option weights: %w", questionID, err)
+		}
+		matrixWeights, err := config.QuestionMatrixWeights(question)
+		if err != nil {
+			return Plan{}, fmt.Errorf("question %q matrix weights: %w", questionID, err)
+		}
 		plan.Questions = append(plan.Questions, QuestionPlan{
-			ID:       strings.TrimSpace(question.ID),
-			Kind:     strings.TrimSpace(question.Kind),
-			Required: question.Required,
-			Options:  cloneOptions(question.Options),
+			ID:            questionID,
+			Kind:          strings.TrimSpace(question.Kind),
+			Required:      question.Required,
+			Options:       cloneOptions(question.Options),
+			Weights:       weights,
+			MatrixWeights: matrixWeights,
 		})
 	}
 	if err := New().ValidatePlan(plan); err != nil {

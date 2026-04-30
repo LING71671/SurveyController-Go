@@ -98,6 +98,71 @@ func TestCompilePlanClonesQuestionOptions(t *testing.T) {
 	}
 }
 
+func TestCompilePlanParsesQuestionWeights(t *testing.T) {
+	cfg := config.DefaultRunConfig()
+	cfg.Survey.URL = "https://example.com/survey"
+	cfg.Survey.Provider = "mock"
+	cfg.Questions = []config.QuestionConfig{
+		{
+			ID:   "q1",
+			Kind: "single",
+			Options: map[string]any{
+				"weights": []any{
+					map[string]any{"option_id": "a", "weight": 2},
+					map[string]any{"option_id": "b", "weight": 1},
+				},
+			},
+		},
+		{
+			ID:   "m1",
+			Kind: "matrix",
+			Options: map[string]any{
+				"matrix_weights": []any{
+					map[string]any{
+						"row_id": "row1",
+						"weights": []any{
+							map[string]any{"option_id": "x", "weight": 1},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plan, err := CompilePlan(cfg)
+	if err != nil {
+		t.Fatalf("CompilePlan() returned error: %v", err)
+	}
+	if len(plan.Questions[0].Weights) != 2 || plan.Questions[0].Weights[0].OptionID != "a" || plan.Questions[0].Weights[0].Weight != 2 {
+		t.Fatalf("Weights = %+v, want parsed option weights", plan.Questions[0].Weights)
+	}
+	rowWeights := plan.Questions[1].MatrixWeights["row1"]
+	if len(rowWeights) != 1 || rowWeights[0].OptionID != "x" || rowWeights[0].Weight != 1 {
+		t.Fatalf("MatrixWeights = %+v, want parsed row weights", plan.Questions[1].MatrixWeights)
+	}
+}
+
+func TestCompilePlanRejectsInvalidQuestionWeights(t *testing.T) {
+	cfg := config.DefaultRunConfig()
+	cfg.Survey.URL = "https://example.com/survey"
+	cfg.Survey.Provider = "mock"
+	cfg.Questions = []config.QuestionConfig{
+		{
+			ID: "q1",
+			Options: map[string]any{
+				"weights": []any{
+					map[string]any{"option_id": "a", "weight": -1},
+				},
+			},
+		},
+	}
+
+	_, err := CompilePlan(cfg)
+	if err == nil || !strings.Contains(err.Error(), `question "q1" option weights`) {
+		t.Fatalf("CompilePlan() error = %v, want question weight context", err)
+	}
+}
+
 func TestCompilePlanClonesRandomUAConfig(t *testing.T) {
 	cfg := config.DefaultRunConfig()
 	cfg.Survey.URL = "https://example.com/survey"
