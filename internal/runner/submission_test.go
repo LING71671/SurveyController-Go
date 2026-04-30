@@ -45,6 +45,9 @@ func TestRecordSubmissionResultCountsFailure(t *testing.T) {
 	if snapshot.Workers[2].Failures != 1 || snapshot.Workers[2].Message != "submit failed" {
 		t.Fatalf("worker progress = %+v, want failure message", snapshot.Workers[2])
 	}
+	if snapshot.LastFailureCode != apperr.CodeSubmitFailed || snapshot.Workers[2].ErrorCode != apperr.CodeSubmitFailed {
+		t.Fatalf("failure codes = %q/%q, want %q", snapshot.LastFailureCode, snapshot.Workers[2].ErrorCode, apperr.CodeSubmitFailed)
+	}
 	if snapshot.StopRequested {
 		t.Fatalf("StopRequested = true, want false")
 	}
@@ -64,6 +67,9 @@ func TestRecordSubmissionResultRequestsStop(t *testing.T) {
 	snapshot := state.Snapshot()
 	if snapshot.Failures != 1 || !snapshot.StopRequested || snapshot.StopReason != "verification required" {
 		t.Fatalf("snapshot = %+v, want failure and explicit stop", snapshot)
+	}
+	if snapshot.LastFailureCode != apperr.CodeVerificationNeeded || snapshot.StopCode != apperr.CodeVerificationNeeded {
+		t.Fatalf("snapshot codes = %q/%q, want %q", snapshot.LastFailureCode, snapshot.StopCode, apperr.CodeVerificationNeeded)
 	}
 	if !state.ShouldStop() {
 		t.Fatalf("ShouldStop() = false, want true")
@@ -152,6 +158,11 @@ func TestEventForSubmissionResult(t *testing.T) {
 			}
 			if event.Fields["should_rotate_proxy"] != tt.result.ShouldRotateProxy {
 				t.Fatalf("should_rotate_proxy field = %v, want %v", event.Fields["should_rotate_proxy"], tt.result.ShouldRotateProxy)
+			}
+			if code, ok := apperr.CodeOf(tt.result.Error); ok {
+				if event.Fields["error_code"] != string(code) || event.Fields["failure_reason"] != string(code) {
+					t.Fatalf("error fields = %+v, want %q", event.Fields, code)
+				}
 			}
 		})
 	}

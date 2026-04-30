@@ -21,13 +21,16 @@ func TestWorkerPoolRecordsSuccessAndFailure(t *testing.T) {
 	}
 	tasks := []Task{
 		func(context.Context, int) error { return nil },
-		func(context.Context, int) error { return errors.New("failed") },
+		func(context.Context, int) error { return apperr.New(apperr.CodeFillFailed, "failed") },
 		func(context.Context, int) error { return nil },
 	}
 
 	snapshot := pool.Run(context.Background(), tasks)
 	if snapshot.Successes != 2 || snapshot.Failures != 1 {
 		t.Fatalf("snapshot counts = %d/%d, want 2/1", snapshot.Successes, snapshot.Failures)
+	}
+	if snapshot.LastFailureCode != apperr.CodeFillFailed {
+		t.Fatalf("LastFailureCode = %q, want %q", snapshot.LastFailureCode, apperr.CodeFillFailed)
 	}
 	if !hasEvent(events, logging.EventRunStarted) || !hasEvent(events, logging.EventRunFinished) {
 		t.Fatalf("events did not include run start and finish")
@@ -190,15 +193,22 @@ func TestWorkerPoolRunSubmissionsRecordsTaskError(t *testing.T) {
 
 	snapshot := pool.RunSubmissions(context.Background(), []SubmissionTask{
 		func(context.Context, int) (engine.SubmissionResult, error) {
-			return engine.SubmissionResult{}, errors.New("browser crashed")
+			return engine.SubmissionResult{}, apperr.Wrap(apperr.CodeBrowserStartFailed, "browser crashed", errors.New("spawn"))
 		},
 	})
 
 	if snapshot.Successes != 0 || snapshot.Failures != 1 {
 		t.Fatalf("counts = %d/%d, want 0/1", snapshot.Successes, snapshot.Failures)
 	}
-	if !hasEvent(events, logging.EventSubmissionFailure) {
+	if snapshot.LastFailureCode != apperr.CodeBrowserStartFailed {
+		t.Fatalf("LastFailureCode = %q, want %q", snapshot.LastFailureCode, apperr.CodeBrowserStartFailed)
+	}
+	event, ok := findEvent(events, logging.EventSubmissionFailure)
+	if !ok {
 		t.Fatalf("events did not include submission failure")
+	}
+	if event.Fields["error_code"] != string(apperr.CodeBrowserStartFailed) {
+		t.Fatalf("error_code field = %v, want %q", event.Fields["error_code"], apperr.CodeBrowserStartFailed)
 	}
 }
 
@@ -218,14 +228,19 @@ func submissionResultTask(result engine.SubmissionResult) SubmissionTask {
 }
 
 func hasEvent(events <-chan logging.RunEvent, eventType logging.EventType) bool {
+	_, ok := findEvent(events, eventType)
+	return ok
+}
+
+func findEvent(events <-chan logging.RunEvent, eventType logging.EventType) (logging.RunEvent, bool) {
 	for {
 		select {
 		case event := <-events:
 			if event.Type == eventType {
-				return true
+				return event, true
 			}
 		default:
-			return false
+			return logging.RunEvent{}, false
 		}
 	}
 }

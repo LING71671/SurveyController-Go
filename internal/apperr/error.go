@@ -68,3 +68,14 @@ func IsCode(err error, code Code) bool {
 	}
 	return appErr.Code == code
 }
+
+func CodeOf(err error) (Code, bool) {
+	var appErr *Error
+	if !errors.As(err, &appErr) {
+		return "", false
+	}
+	if appErr.Code == "" {
+		return "", false
+	}
+	return appErr.Code, true
+}
