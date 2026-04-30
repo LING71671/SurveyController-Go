@@ -3,22 +3,13 @@ package provider
 import (
 	"context"
 
+	"github.com/LING71671/SurveyController-go/internal/domain"
 	"github.com/LING71671/SurveyController-go/internal/engine"
 )
 
-type SurveyDefinition struct {
-	Provider  string
-	Title     string
-	Questions []Question
-}
-
-type Question struct {
-	Number  int
-	Title   string
-	Type    string
-	Options []string
-	Rows    []string
-}
+type SurveyDefinition = domain.SurveyDefinition
+type QuestionDefinition = domain.QuestionDefinition
+type ProviderID = domain.ProviderID
 
 type Capabilities struct {
 	Engines []engine.Mode
@@ -38,7 +29,7 @@ func (c Capabilities) Supports(mode engine.Mode) bool {
 }
 
 type Provider interface {
-	Name() string
+	ID() ProviderID
 	MatchURL(rawURL string) bool
 	Capabilities() Capabilities
 	Parse(ctx context.Context, rawURL string) (SurveyDefinition, error)
