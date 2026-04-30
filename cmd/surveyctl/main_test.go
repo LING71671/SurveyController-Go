@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/LING71671/SurveyController-go/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 func TestRunVersion(t *testing.T) {
@@ -33,7 +36,7 @@ func TestRunHelpListsV02CommandStubs(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(help) exit code = %d, want %d", code, exitOK)
 	}
-	for _, want := range []string{"config validate", "doctor", "run", "version"} {
+	for _, want := range []string{"config validate", "config generate", "doctor", "run", "version"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("help output = %q, want %q", stdout.String(), want)
 		}
@@ -65,6 +68,94 @@ questions: []
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunConfigGenerateFromFixtures(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		fixture  string
+		url      string
+	}{
+		{
+			name:     "wjx",
+			provider: "wjx",
+			fixture:  filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html"),
+			url:      "https://www.wjx.cn/vm/example.aspx",
+		},
+		{
+			name:     "tencent",
+			provider: "tencent",
+			fixture:  filepath.Join("..", "..", "internal", "provider", "tencent", "testdata", "survey_api.json"),
+			url:      "https://wj.qq.com/s2/example",
+		},
+		{
+			name:     "credamo",
+			provider: "credamo",
+			fixture:  filepath.Join("..", "..", "internal", "provider", "credamo", "testdata", "snapshot.json"),
+			url:      "https://www.credamo.com/s/example",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+
+			code := run([]string{"config", "generate", "--provider", tt.provider, "--fixture", tt.fixture, "--url", tt.url}, &stdout, &stderr)
+			if code != exitOK {
+				t.Fatalf("run(config generate) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+			}
+			var cfg config.RunConfig
+			if err := yaml.Unmarshal(stdout.Bytes(), &cfg); err != nil {
+				t.Fatalf("decode generated yaml: %v; output=%q", err, stdout.String())
+			}
+			if cfg.Survey.Provider != tt.provider || cfg.Survey.URL != tt.url {
+				t.Fatalf("Survey = %+v, want provider %q url %q", cfg.Survey, tt.provider, tt.url)
+			}
+			if len(cfg.Questions) == 0 {
+				t.Fatalf("generated config has no questions: %+v", cfg)
+			}
+			if err := cfg.Validate(); err != nil {
+				t.Fatalf("generated config did not validate: %v", err)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr = %q, want empty", stderr.String())
+			}
+		})
+	}
+}
+
+func TestRunConfigGenerateRequiresProvider(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"config", "generate", "--fixture", "survey.html", "--url", "https://example.com"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(config generate missing provider) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "requires --provider") {
+		t.Fatalf("stderr = %q, want provider requirement", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunConfigGenerateRejectsUnsupportedProvider(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"config", "generate", "--provider", "nope", "--fixture", "survey.html", "--url", "https://example.com"}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(config generate unsupported provider) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stderr.String(), "unsupported provider") {
+		t.Fatalf("stderr = %q, want unsupported provider", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 
