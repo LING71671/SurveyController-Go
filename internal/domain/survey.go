@@ -6,50 +6,50 @@ import (
 )
 
 type SurveyDefinition struct {
-	Provider    ProviderID
-	ProviderRaw map[string]any
-	ID          string
-	Title       string
-	Description string
-	URL         string
-	Pages       []PageDefinition
-	Questions   []QuestionDefinition
+	Provider    ProviderID           `json:"provider"`
+	ProviderRaw map[string]any       `json:"provider_raw,omitempty"`
+	ID          string               `json:"id,omitempty"`
+	Title       string               `json:"title"`
+	Description string               `json:"description,omitempty"`
+	URL         string               `json:"url,omitempty"`
+	Pages       []PageDefinition     `json:"pages,omitempty"`
+	Questions   []QuestionDefinition `json:"questions"`
 }
 
 type PageDefinition struct {
-	Number      int
-	Title       string
-	Description string
-	QuestionIDs []string
-	ProviderRaw map[string]any
+	Number      int            `json:"number"`
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	QuestionIDs []string       `json:"question_ids,omitempty"`
+	ProviderRaw map[string]any `json:"provider_raw,omitempty"`
 }
 
 type QuestionDefinition struct {
-	ID          string
-	Number      int
-	Title       string
-	Description string
-	Kind        QuestionKind
-	Required    bool
-	Options     []OptionDefinition
-	Rows        []OptionDefinition
-	Conditions  []ConditionDefinition
-	ProviderRaw map[string]any
+	ID          string                `json:"id"`
+	Number      int                   `json:"number"`
+	Title       string                `json:"title"`
+	Description string                `json:"description,omitempty"`
+	Kind        QuestionKind          `json:"kind"`
+	Required    bool                  `json:"required,omitempty"`
+	Options     []OptionDefinition    `json:"options,omitempty"`
+	Rows        []OptionDefinition    `json:"rows,omitempty"`
+	Conditions  []ConditionDefinition `json:"conditions,omitempty"`
+	ProviderRaw map[string]any        `json:"provider_raw,omitempty"`
 }
 
 type OptionDefinition struct {
-	ID          string
-	Label       string
-	Value       string
-	Exclusive   bool
-	ProviderRaw map[string]any
+	ID          string         `json:"id"`
+	Label       string         `json:"label"`
+	Value       string         `json:"value,omitempty"`
+	Exclusive   bool           `json:"exclusive,omitempty"`
+	ProviderRaw map[string]any `json:"provider_raw,omitempty"`
 }
 
 type ConditionDefinition struct {
-	SourceQuestionID string
-	Operator         ConditionOperator
-	Values           []string
-	ProviderRaw      map[string]any
+	SourceQuestionID string            `json:"source_question_id"`
+	Operator         ConditionOperator `json:"operator"`
+	Values           []string          `json:"values,omitempty"`
+	ProviderRaw      map[string]any    `json:"provider_raw,omitempty"`
 }
 
 type ConditionOperator string
