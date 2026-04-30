@@ -11,6 +11,7 @@ import (
 
 	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/doctor"
+	"github.com/LING71671/SurveyController-go/internal/provider/builtin"
 	"github.com/LING71671/SurveyController-go/internal/runner"
 	"github.com/LING71671/SurveyController-go/internal/version"
 )
@@ -166,6 +167,13 @@ func runRun(args []string, stdout io.Writer) error {
 	cfg, err := config.LoadRunConfig(path)
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("run dry-run failed: %v", err), "")
+	}
+	if strings.TrimSpace(cfg.Survey.Provider) == "" {
+		providerID, ok := builtin.DetectProvider(cfg.Survey.URL)
+		if !ok {
+			return commandError(exitFailure, fmt.Sprintf("run dry-run failed: provider is required or survey.url must match a built-in provider: %s", cfg.Survey.URL), "")
+		}
+		cfg.Survey.Provider = providerID.String()
 	}
 	plan, err := runner.CompilePlan(cfg)
 	if err != nil {

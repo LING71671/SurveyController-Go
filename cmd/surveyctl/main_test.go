@@ -130,6 +130,57 @@ questions: []
 	}
 }
 
+func TestRunDryRunDetectsProviderFromURL(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://www.wjx.cn/vm/example.aspx"
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+questions: []
+`)
+
+	code := run([]string{"run", "--dry-run", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(dry-run detect provider) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "provider: wjx") {
+		t.Fatalf("stdout = %q, want detected wjx provider", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunDryRunKeepsExplicitProvider(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://www.wjx.cn/vm/example.aspx"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+questions: []
+`)
+
+	code := run([]string{"run", "--dry-run", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(dry-run explicit provider) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "provider: mock") {
+		t.Fatalf("stdout = %q, want explicit mock provider", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
 func TestRunRequiresDryRun(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -163,8 +214,8 @@ questions: []
 	if code != exitFailure {
 		t.Fatalf("run(dry-run invalid) exit code = %d, want %d", code, exitFailure)
 	}
-	if !strings.Contains(stderr.String(), "provider is required") {
-		t.Fatalf("stderr = %q, want provider error", stderr.String())
+	if !strings.Contains(stderr.String(), "survey.url must match a built-in provider") {
+		t.Fatalf("stderr = %q, want provider detection error", stderr.String())
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
