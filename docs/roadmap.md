@@ -7,6 +7,8 @@
 - 每个版本都先补测试和文档，再扩大运行能力。
 - 运行内核保持可选：`hybrid`、`browser`、`http`。
 - 默认优先兼容性，只有 provider 明确声明安全时才走 HTTP 快速路径。
+- Go 版长期主轴是高速、高效、轻量、高性能，并把并发能力和内存占用做到可验证的极限。
+- `v1.0` 不做 GUI；后续轻量 GUI 必须作为薄外壳复用稳定 core/CLI。
 
 ## 版本路线
 
@@ -21,7 +23,8 @@
 | `v0.7` | 浏览器内核基础 | Playwright Go 封装、browser session、preflight doctor、mockable page 接口 |
 | `v0.8` | 腾讯与 Credamo parser 原型 | 腾讯 API parser、Credamo browser parser、三平台解析 fixture |
 | `v0.9` | 运行时预览 | `browser/http/hybrid` 预览、基础提交判定、性能基准、稳定性回归 |
-| `v1.0` | 三平台正式支持 | 问卷星、腾讯问卷、Credamo 的解析、配置生成、基础运行、测试和文档闭环 |
+| `v1.0` | 三平台正式支持 | 问卷星、腾讯问卷、Credamo 的解析、配置生成、基础运行、性能回归、测试和文档闭环，不包含 GUI |
+| `v1.1+` | 轻量 GUI 和扩展能力 | 轻量操作外壳、二维码辅助、反填增强、AI 主观题、打包与更新器 |
 
 ## V0.1 波次
 
@@ -244,8 +247,13 @@
 - Parser benchmark。
 - Answer planner benchmark。
 - Worker pool benchmark。
+- Worker pool 高并发压测。
+- Runner 内存分配基准。
+- Parser 大 fixture 内存分配基准。
 - 浏览器资源回收回归。
 - 真实 browser doctor probe，按环境跳过集成测试。
+- 运行事件和状态不能依赖 UI。
+- core 包避免引入 GUI 或重量级桌面依赖。
 
 ## V1.0 边界
 
@@ -258,3 +266,7 @@
 - 配置、运行、provider、答案策略有测试。
 - CLI 文档完整。
 - 仍保持授权学习与测试使用边界。
+- 不包含 GUI；后续轻量 GUI 只作为 core/CLI 的薄外壳。
+- 保留基础 benchmark 或性能回归用例，确保轻量高效目标可验证。
+- 高并发运行必须受资源池和配置上限约束，不能靠无界 goroutine 堆并发。
+- 核心运行链路需要内存分配基线，防止 parser、runner、event buffer 长会话膨胀。
