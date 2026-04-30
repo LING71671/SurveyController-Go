@@ -2,9 +2,9 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/engine"
 )
 
 type SurveyDefinition = domain.SurveyDefinition
@@ -21,54 +21,72 @@ type Capabilities struct {
 	RequiresLoginOK bool
 }
 
-func (c Capabilities) Supports(mode engine.Mode) bool {
-	normalized, err := engine.ParseMode(mode.String())
-	if err != nil {
+type ModeValue interface {
+	String() string
+}
+
+func (c Capabilities) Supports(mode ModeValue) bool {
+	normalized, ok := normalizeMode(mode)
+	if !ok {
 		return false
 	}
 	switch normalized {
-	case engine.ModeHybrid:
+	case "hybrid":
 		return c.SupportsHybrid
-	case engine.ModeBrowser:
+	case "browser":
 		return c.RunBrowser || c.SubmitBrowser || c.ParseBrowser
-	case engine.ModeHTTP:
+	case "http":
 		return c.SubmitHTTP || c.ParseHTTP
 	default:
 		return false
 	}
 }
 
-func (c Capabilities) CanParse(mode engine.Mode) bool {
-	normalized, err := engine.ParseMode(mode.String())
-	if err != nil {
+func (c Capabilities) CanParse(mode ModeValue) bool {
+	normalized, ok := normalizeMode(mode)
+	if !ok {
 		return false
 	}
 	switch normalized {
-	case engine.ModeHybrid:
+	case "hybrid":
 		return c.SupportsHybrid && (c.ParseHTTP || c.ParseBrowser)
-	case engine.ModeBrowser:
+	case "browser":
 		return c.ParseBrowser
-	case engine.ModeHTTP:
+	case "http":
 		return c.ParseHTTP
 	default:
 		return false
 	}
 }
 
-func (c Capabilities) CanSubmit(mode engine.Mode) bool {
-	normalized, err := engine.ParseMode(mode.String())
-	if err != nil {
+func (c Capabilities) CanSubmit(mode ModeValue) bool {
+	normalized, ok := normalizeMode(mode)
+	if !ok {
 		return false
 	}
 	switch normalized {
-	case engine.ModeHybrid:
+	case "hybrid":
 		return c.SupportsHybrid && (c.SubmitHTTP || c.SubmitBrowser)
-	case engine.ModeBrowser:
+	case "browser":
 		return c.SubmitBrowser
-	case engine.ModeHTTP:
+	case "http":
 		return c.SubmitHTTP
 	default:
 		return false
+	}
+}
+
+func normalizeMode(mode ModeValue) (string, bool) {
+	if mode == nil {
+		return "", false
+	}
+	switch normalized := strings.ToLower(strings.TrimSpace(mode.String())); normalized {
+	case "":
+		return "hybrid", true
+	case "hybrid", "browser", "http":
+		return normalized, true
+	default:
+		return "", false
 	}
 }
 

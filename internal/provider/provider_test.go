@@ -5,19 +5,18 @@ import (
 	"testing"
 
 	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/engine"
 )
 
 func TestCapabilitiesSupportsMode(t *testing.T) {
 	capabilities := Capabilities{RunBrowser: true, SupportsHybrid: true}
 
-	if !capabilities.Supports(engine.Mode(" Browser ")) {
+	if !capabilities.Supports(modeStub(" Browser ")) {
 		t.Fatalf("Supports(browser) = false, want true")
 	}
-	if capabilities.Supports(engine.ModeHTTP) {
+	if capabilities.Supports(modeStub("http")) {
 		t.Fatalf("Supports(http) = true, want false")
 	}
-	if capabilities.Supports(engine.Mode("magic")) {
+	if capabilities.Supports(modeStub("magic")) {
 		t.Fatalf("Supports(magic) = true, want false")
 	}
 }
@@ -29,13 +28,13 @@ func TestCapabilitiesCanParseAndSubmit(t *testing.T) {
 		SupportsHybrid: true,
 	}
 
-	if !capabilities.CanParse(engine.ModeHTTP) {
+	if !capabilities.CanParse(modeStub("http")) {
 		t.Fatalf("CanParse(http) = false, want true")
 	}
-	if capabilities.CanSubmit(engine.ModeHTTP) {
+	if capabilities.CanSubmit(modeStub("http")) {
 		t.Fatalf("CanSubmit(http) = true, want false")
 	}
-	if !capabilities.CanSubmit(engine.ModeHybrid) {
+	if !capabilities.CanSubmit(modeStub("hybrid")) {
 		t.Fatalf("CanSubmit(hybrid) = false, want true")
 	}
 }
@@ -86,6 +85,12 @@ func TestMatchHostAndSuffix(t *testing.T) {
 type stubProvider struct {
 	id   ProviderID
 	host string
+}
+
+type modeStub string
+
+func (m modeStub) String() string {
+	return string(m)
 }
 
 func (p stubProvider) ID() ProviderID {
