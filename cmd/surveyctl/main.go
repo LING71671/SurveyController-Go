@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/version"
 )
 
@@ -108,7 +109,10 @@ func runConfig(args []string, stdout io.Writer) error {
 		if len(args) == 2 && strings.TrimSpace(args[1]) != "" {
 			path = args[1]
 		}
-		fmt.Fprintf(stdout, "config validation placeholder: %s\n", path)
+		if err := config.ValidateFile(path); err != nil {
+			return commandError(exitFailure, fmt.Sprintf("config validation failed: %v", err), "")
+		}
+		fmt.Fprintf(stdout, "config valid: %s\n", path)
 		return nil
 	default:
 		return usageError(fmt.Sprintf("unknown config command %q", args[0]), configUsage)
@@ -130,8 +134,12 @@ func runDoctor(args []string, stdout io.Writer) error {
 }
 
 func usageError(msg string, usage string) error {
+	return commandError(exitUsage, msg, usage)
+}
+
+func commandError(code int, msg string, usage string) error {
 	return &cliError{
-		code:  exitUsage,
+		code:  code,
 		msg:   msg,
 		usage: usage,
 	}

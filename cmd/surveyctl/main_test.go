@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,15 +42,24 @@ func TestRunHelpListsV02CommandStubs(t *testing.T) {
 	}
 }
 
-func TestRunConfigValidatePlaceholder(t *testing.T) {
+func TestRunConfigValidateFile(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+questions: []
+`)
 
-	code := run([]string{"config", "validate", "example.yaml"}, &stdout, &stderr)
+	code := run([]string{"config", "validate", path}, &stdout, &stderr)
 	if code != exitOK {
 		t.Fatalf("run(config validate) exit code = %d, want %d", code, exitOK)
 	}
-	if !strings.Contains(stdout.String(), "example.yaml") {
+	if !strings.Contains(stdout.String(), path) {
 		t.Fatalf("stdout = %q, want validated path", stdout.String())
 	}
 	if stderr.Len() != 0 {
@@ -88,6 +99,30 @@ func TestRunConfigValidateRejectsExtraArgs(t *testing.T) {
 	}
 }
 
+func TestRunConfigValidateReportsInvalidConfig(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: ""
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+`)
+
+	code := run([]string{"config", "validate", path}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(config validate invalid) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stderr.String(), "survey.url is required") {
+		t.Fatalf("stderr = %q, want validation error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
 func TestRunUnknownCommand(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -102,4 +137,13 @@ func TestRunUnknownCommand(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
+}
+
+func writeConfig(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "survey.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return path
 }
