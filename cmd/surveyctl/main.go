@@ -11,9 +11,14 @@ import (
 
 	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/doctor"
+	"github.com/LING71671/SurveyController-go/internal/domain"
 	"github.com/LING71671/SurveyController-go/internal/provider/builtin"
+	"github.com/LING71671/SurveyController-go/internal/provider/credamo"
+	"github.com/LING71671/SurveyController-go/internal/provider/tencent"
+	"github.com/LING71671/SurveyController-go/internal/provider/wjx"
 	"github.com/LING71671/SurveyController-go/internal/runner"
 	"github.com/LING71671/SurveyController-go/internal/version"
+	"gopkg.in/yaml.v3"
 )
 
 const usage = `surveyctl is the SurveyController-go command line tool.
@@ -21,6 +26,7 @@ const usage = `surveyctl is the SurveyController-go command line tool.
 Usage:
   surveyctl version
   surveyctl config validate [path]
+  surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json]
   surveyctl doctor [browser]
   surveyctl help
@@ -28,6 +34,7 @@ Usage:
 Commands:
   version          Print build version
   config validate  Validate a run configuration file
+  config generate  Generate a run configuration from a local fixture
   run              Compile and preview a run plan
   doctor           Run local environment checks
   help             Print this help message
@@ -35,6 +42,7 @@ Commands:
 
 const configUsage = `Usage:
   surveyctl config validate [path]
+  surveyctl config generate --provider <id> --fixture <path> --url <url>
 `
 
 const doctorUsage = `Usage:
@@ -127,9 +135,107 @@ func runConfig(args []string, stdout io.Writer) error {
 		}
 		fmt.Fprintf(stdout, "config valid: %s\n", path)
 		return nil
+	case "generate":
+		return runConfigGenerate(args[1:], stdout)
 	default:
 		return usageError(fmt.Sprintf("unknown config command %q", args[0]), configUsage)
 	}
+}
+
+func runConfigGenerate(args []string, stdout io.Writer) error {
+	var providerID string
+	var fixturePath string
+	var rawURL string
+	for i := 0; i < len(args); i++ {
+		arg := strings.TrimSpace(args[i])
+		switch strings.ToLower(arg) {
+		case "":
+			continue
+		case "help", "-h", "--help":
+			fmt.Fprint(stdout, configUsage)
+			return nil
+		case "--provider":
+			value, next, err := readFlagValue(args, i, "--provider")
+			if err != nil {
+				return err
+			}
+			providerID = value
+			i = next
+		case "--fixture":
+			value, next, err := readFlagValue(args, i, "--fixture")
+			if err != nil {
+				return err
+			}
+			fixturePath = value
+			i = next
+		case "--url":
+			value, next, err := readFlagValue(args, i, "--url")
+			if err != nil {
+				return err
+			}
+			rawURL = value
+			i = next
+		default:
+			return usageError(fmt.Sprintf("unknown config generate argument %q", arg), configUsage)
+		}
+	}
+	if strings.TrimSpace(providerID) == "" {
+		return usageError("config generate requires --provider", configUsage)
+	}
+	if strings.TrimSpace(fixturePath) == "" {
+		return usageError("config generate requires --fixture", configUsage)
+	}
+	if strings.TrimSpace(rawURL) == "" {
+		return usageError("config generate requires --url", configUsage)
+	}
+
+	cfg, err := generateConfigFromFixture(providerID, fixturePath, rawURL)
+	if err != nil {
+		return commandError(exitFailure, fmt.Sprintf("config generate failed: %v", err), "")
+	}
+	encoder := yaml.NewEncoder(stdout)
+	if err := encoder.Encode(cfg); err != nil {
+		_ = encoder.Close()
+		return err
+	}
+	return encoder.Close()
+}
+
+func generateConfigFromFixture(providerID string, fixturePath string, rawURL string) (config.RunConfig, error) {
+	id, err := domain.ParseProviderID(providerID)
+	if err != nil {
+		return config.RunConfig{}, err
+	}
+	file, err := os.Open(fixturePath)
+	if err != nil {
+		return config.RunConfig{}, fmt.Errorf("open fixture %q: %w", fixturePath, err)
+	}
+	defer file.Close()
+
+	var survey domain.SurveyDefinition
+	switch id {
+	case domain.ProviderWJX:
+		survey, err = wjx.ParseHTML(file, rawURL)
+	case domain.ProviderTencent:
+		survey, err = tencent.ParseAPI(file, rawURL)
+	case domain.ProviderCredamo:
+		survey, err = credamo.ParseSnapshot(file, rawURL)
+	default:
+		return config.RunConfig{}, fmt.Errorf("unsupported provider %q", providerID)
+	}
+	if err != nil {
+		return config.RunConfig{}, err
+	}
+	survey.URL = strings.TrimSpace(rawURL)
+	return config.FromSurveyDefinition(survey)
+}
+
+func readFlagValue(args []string, index int, flag string) (string, int, error) {
+	next := index + 1
+	if next >= len(args) || strings.TrimSpace(args[next]) == "" {
+		return "", index, usageError(fmt.Sprintf("%s requires a value", flag), configUsage)
+	}
+	return args[next], next, nil
 }
 
 func runRun(args []string, stdout io.Writer) error {
