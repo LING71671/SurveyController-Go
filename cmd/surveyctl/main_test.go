@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,7 @@ func TestRunHelpListsV02CommandStubs(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(help) exit code = %d, want %d", code, exitOK)
 	}
-	for _, want := range []string{"config validate", "doctor", "version"} {
+	for _, want := range []string{"config validate", "doctor", "run", "version"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("help output = %q, want %q", stdout.String(), want)
 		}
@@ -64,6 +65,109 @@ questions: []
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunDryRunPrintsPlanSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 2
+  concurrency: 2
+  mode: browser
+  failure_threshold: 3
+  headless: false
+questions:
+  - id: q1
+    kind: single
+`)
+
+	code := run([]string{"run", "--dry-run", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(dry-run) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"dry-run plan:", "provider: mock", "mode: browser", "target: 2", "questions: 1", "submissions: 0"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunDryRunJSONPrintsPlanSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+questions: []
+`)
+
+	code := run([]string{"run", "--dry-run", "--json", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(dry-run json) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	var summary map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &summary); err != nil {
+		t.Fatalf("json output decode failed: %v; output=%q", err, stdout.String())
+	}
+	if summary["provider"] != "mock" || summary["mode"] != "hybrid" || summary["question_count"] != float64(0) {
+		t.Fatalf("summary = %+v, want provider/mode/question count", summary)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunRequiresDryRun(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "survey.yaml"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(without dry-run) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "requires --dry-run") {
+		t.Fatalf("stderr = %q, want dry-run requirement", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunDryRunReportsInvalidConfig(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+run:
+  target: 1
+  concurrency: 1
+  mode: hybrid
+questions: []
+`)
+
+	code := run([]string{"run", "--dry-run", path}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(dry-run invalid) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stderr.String(), "provider is required") {
+		t.Fatalf("stderr = %q, want provider error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 
