@@ -7,7 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/LING71671/SurveyController-go/internal/apperr"
+	"github.com/LING71671/SurveyController-go/internal/engine"
 	"github.com/LING71671/SurveyController-go/internal/logging"
+	"github.com/LING71671/SurveyController-go/internal/provider"
 )
 
 func TestWorkerPoolRecordsSuccessAndFailure(t *testing.T) {
@@ -99,12 +102,118 @@ func TestWorkerPoolStopsOnContextCancel(t *testing.T) {
 	}
 }
 
+func TestWorkerPoolRunSubmissionsRecordsResults(t *testing.T) {
+	events := make(chan logging.RunEvent, 16)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: 3, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+	tasks := []SubmissionTask{
+		submissionResultTask(engine.SubmissionResult{
+			State:    provider.SubmissionStateSuccess,
+			Message:  "done",
+			Success:  true,
+			Terminal: true,
+		}),
+		submissionResultTask(engine.SubmissionResult{
+			State:   provider.SubmissionStateUnknown,
+			Message: "waiting",
+		}),
+		submissionResultTask(engine.SubmissionResult{
+			State:    provider.SubmissionStateFailure,
+			Message:  "failed",
+			Terminal: true,
+			Error:    apperr.New(apperr.CodeSubmitFailed, "failed"),
+		}),
+	}
+
+	snapshot := pool.RunSubmissions(context.Background(), tasks)
+	if snapshot.Successes != 1 || snapshot.Failures != 1 {
+		t.Fatalf("snapshot counts = %d/%d, want 1/1", snapshot.Successes, snapshot.Failures)
+	}
+	if snapshot.Workers[1].Message != "worker stopped" {
+		t.Fatalf("worker progress = %+v, want stopped message", snapshot.Workers[1])
+	}
+	if !hasEvent(events, logging.EventSubmissionSuccess) {
+		t.Fatalf("events did not include submission success")
+	}
+	if !hasEvent(events, logging.EventWorkerProgress) {
+		t.Fatalf("events did not include worker progress")
+	}
+	if !hasEvent(events, logging.EventSubmissionFailure) {
+		t.Fatalf("events did not include submission failure")
+	}
+}
+
+func TestWorkerPoolRunSubmissionsStopsOnSubmissionSignal(t *testing.T) {
+	events := make(chan logging.RunEvent, 16)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: 10, FailureThreshold: 10, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+	var calls int32
+	tasks := []SubmissionTask{
+		func(context.Context, int) (engine.SubmissionResult, error) {
+			atomic.AddInt32(&calls, 1)
+			return engine.SubmissionResult{
+				State:      provider.SubmissionStateVerificationRequired,
+				Message:    "captcha",
+				Terminal:   true,
+				ShouldStop: true,
+				Error:      apperr.New(apperr.CodeVerificationNeeded, "captcha"),
+			}, nil
+		},
+		func(context.Context, int) (engine.SubmissionResult, error) {
+			atomic.AddInt32(&calls, 1)
+			return engine.SubmissionResult{State: provider.SubmissionStateSuccess, Success: true}, nil
+		},
+	}
+
+	snapshot := pool.RunSubmissions(context.Background(), tasks)
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1", calls)
+	}
+	if snapshot.Failures != 1 || !snapshot.StopRequested || snapshot.StopReason != "captcha" {
+		t.Fatalf("snapshot = %+v, want stop after verification", snapshot)
+	}
+	if !hasEvent(events, logging.EventVerificationNeeded) {
+		t.Fatalf("events did not include verification needed")
+	}
+}
+
+func TestWorkerPoolRunSubmissionsRecordsTaskError(t *testing.T) {
+	events := make(chan logging.RunEvent, 16)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+
+	snapshot := pool.RunSubmissions(context.Background(), []SubmissionTask{
+		func(context.Context, int) (engine.SubmissionResult, error) {
+			return engine.SubmissionResult{}, errors.New("browser crashed")
+		},
+	})
+
+	if snapshot.Successes != 0 || snapshot.Failures != 1 {
+		t.Fatalf("counts = %d/%d, want 0/1", snapshot.Successes, snapshot.Failures)
+	}
+	if !hasEvent(events, logging.EventSubmissionFailure) {
+		t.Fatalf("events did not include submission failure")
+	}
+}
+
 func TestNewWorkerPoolRejectsInvalidOptions(t *testing.T) {
 	if _, err := NewWorkerPool(PoolOptions{}); err == nil {
 		t.Fatal("NewWorkerPool(empty) returned nil error, want failure")
 	}
 	if _, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: -1}); err == nil {
 		t.Fatal("NewWorkerPool(negative target) returned nil error, want failure")
+	}
+}
+
+func submissionResultTask(result engine.SubmissionResult) SubmissionTask {
+	return func(context.Context, int) (engine.SubmissionResult, error) {
+		return result, nil
 	}
 }
 

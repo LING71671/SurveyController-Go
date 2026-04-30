@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/LING71671/SurveyController-go/internal/engine"
 	"github.com/LING71671/SurveyController-go/internal/logging"
 )
 
 type Task func(ctx context.Context, workerID int) error
+type SubmissionTask func(ctx context.Context, workerID int) (engine.SubmissionResult, error)
 
 type PoolOptions struct {
 	Concurrency      int
@@ -78,6 +80,36 @@ enqueue:
 	return snapshot
 }
 
+func (p *WorkerPool) RunSubmissions(ctx context.Context, tasks []SubmissionTask) StateSnapshot {
+	p.emit(logging.NewEvent(logging.EventRunStarted, "run started"))
+	taskCh := make(chan SubmissionTask)
+	var wg sync.WaitGroup
+
+	for workerID := 1; workerID <= p.options.Concurrency; workerID++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			p.submissionWorker(ctx, id, taskCh)
+		}(workerID)
+	}
+
+enqueue:
+	for _, task := range tasks {
+		if p.state.ShouldStop() {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			break enqueue
+		case taskCh <- task:
+		}
+	}
+	close(taskCh)
+	wg.Wait()
+
+	return p.finishRun()
+}
+
 func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task) {
 	p.state.SetWorkerStatus(workerID, WorkerStatusRunning, "worker started")
 	p.emit(logging.RunEvent{
@@ -115,6 +147,60 @@ func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task
 			})
 		}
 	}
+}
+
+func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <-chan SubmissionTask) {
+	p.startWorker(workerID)
+	defer p.state.SetWorkerStatus(workerID, WorkerStatusStopped, "worker stopped")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case task, ok := <-tasks:
+			if !ok || p.state.ShouldStop() {
+				return
+			}
+			result, err := task(ctx, workerID)
+			if err != nil {
+				p.state.RecordFailure(workerID, err.Error())
+				p.emit(logging.RunEvent{
+					Type:     logging.EventSubmissionFailure,
+					Level:    logging.LevelError,
+					WorkerID: workerID,
+					Message:  err.Error(),
+				})
+				continue
+			}
+			p.state.RecordSubmissionResult(workerID, result)
+			p.emit(EventForSubmissionResult(workerID, result))
+		}
+	}
+}
+
+func (p *WorkerPool) startWorker(workerID int) {
+	p.state.SetWorkerStatus(workerID, WorkerStatusRunning, "worker started")
+	p.emit(logging.RunEvent{
+		Type:     logging.EventWorkerStarted,
+		Level:    logging.LevelInfo,
+		WorkerID: workerID,
+		Message:  "worker started",
+	})
+}
+
+func (p *WorkerPool) finishRun() StateSnapshot {
+	snapshot := p.state.Snapshot()
+	p.emit(logging.RunEvent{
+		Type:    logging.EventRunFinished,
+		Level:   logging.LevelInfo,
+		Message: "run finished",
+		Fields: map[string]any{
+			"successes":      snapshot.Successes,
+			"failures":       snapshot.Failures,
+			"stop_requested": snapshot.StopRequested,
+		},
+	})
+	return snapshot
 }
 
 func (p *WorkerPool) emit(event logging.RunEvent) {
