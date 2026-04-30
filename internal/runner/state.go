@@ -16,12 +16,14 @@ type StateOptions struct {
 }
 
 type RunState struct {
-	mu        sync.Mutex
-	target    int
-	threshold int
-	success   int
-	failure   int
-	workers   map[int]WorkerProgress
+	mu            sync.Mutex
+	target        int
+	threshold     int
+	success       int
+	failure       int
+	stopRequested bool
+	stopReason    string
+	workers       map[int]WorkerProgress
 }
 
 type WorkerProgress struct {
@@ -37,6 +39,8 @@ type StateSnapshot struct {
 	FailureThreshold int
 	Successes        int
 	Failures         int
+	StopRequested    bool
+	StopReason       string
 	Workers          map[int]WorkerProgress
 }
 
@@ -81,6 +85,14 @@ func (s *RunState) SetWorkerStatus(workerID int, status WorkerStatus, message st
 	s.workers[workerID] = progress
 }
 
+func (s *RunState) RequestStop(reason string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.stopRequested = true
+	s.stopReason = reason
+}
+
 func (s *RunState) Snapshot() StateSnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,13 +106,15 @@ func (s *RunState) Snapshot() StateSnapshot {
 		FailureThreshold: s.threshold,
 		Successes:        s.success,
 		Failures:         s.failure,
+		StopRequested:    s.stopRequested,
+		StopReason:       s.stopReason,
 		Workers:          workers,
 	}
 }
 
 func (s *RunState) ShouldStop() bool {
 	snapshot := s.Snapshot()
-	return snapshot.TargetReached() || snapshot.FailureThresholdReached()
+	return snapshot.StopRequested || snapshot.TargetReached() || snapshot.FailureThresholdReached()
 }
 
 func (s StateSnapshot) TargetReached() bool {

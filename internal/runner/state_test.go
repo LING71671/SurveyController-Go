@@ -53,6 +53,16 @@ func TestRunStateShouldStop(t *testing.T) {
 	if !state.ShouldStop() {
 		t.Fatalf("ShouldStop() = false after failure threshold reached, want true")
 	}
+
+	state = NewRunState(StateOptions{Target: 10, FailureThreshold: 10})
+	state.RequestStop("verification required")
+	if !state.ShouldStop() {
+		t.Fatalf("ShouldStop() = false after explicit stop, want true")
+	}
+	snapshot := state.Snapshot()
+	if !snapshot.StopRequested || snapshot.StopReason != "verification required" {
+		t.Fatalf("explicit stop snapshot = %+v, want stop reason", snapshot)
+	}
 }
 
 func TestRunStateIsConcurrentSafe(t *testing.T) {
