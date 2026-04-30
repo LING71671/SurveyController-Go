@@ -75,11 +75,45 @@ func TestRunDoctorPlaceholder(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(doctor) exit code = %d, want %d", code, exitOK)
 	}
-	if !strings.Contains(stdout.String(), "doctor checks placeholder: ok") {
-		t.Fatalf("stdout = %q, want doctor placeholder", stdout.String())
+	if !strings.Contains(stdout.String(), "doctor checks: ok") {
+		t.Fatalf("stdout = %q, want doctor ok", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunDoctorBrowser(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"doctor", "browser"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(doctor browser) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"browser doctor:", "operating_system", "proxy_connectivity"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunDoctorBrowserRejectsExtraArgs(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"doctor", "browser", "extra"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(doctor browser extra) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "accepts no arguments") {
+		t.Fatalf("stderr = %q, want extra argument error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 

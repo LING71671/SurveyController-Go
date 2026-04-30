@@ -24,6 +24,7 @@ go vet ./...
 go run ./cmd/surveyctl version
 go run ./cmd/surveyctl config validate examples/run.yaml
 go run ./cmd/surveyctl doctor
+go run ./cmd/surveyctl doctor browser
 ```
 
 预期版本输出：

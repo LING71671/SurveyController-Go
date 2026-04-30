@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/LING71671/SurveyController-go/internal/config"
+	"github.com/LING71671/SurveyController-go/internal/doctor"
 	"github.com/LING71671/SurveyController-go/internal/version"
 )
 
@@ -16,7 +18,7 @@ const usage = `surveyctl is the SurveyController-go command line tool.
 Usage:
   surveyctl version
   surveyctl config validate [path]
-  surveyctl doctor
+  surveyctl doctor [browser]
   surveyctl help
 
 Commands:
@@ -31,7 +33,7 @@ const configUsage = `Usage:
 `
 
 const doctorUsage = `Usage:
-  surveyctl doctor
+  surveyctl doctor [browser]
 `
 
 const (
@@ -125,12 +127,34 @@ func runDoctor(args []string, stdout io.Writer) error {
 		case "help", "-h", "--help":
 			fmt.Fprint(stdout, doctorUsage)
 			return nil
+		case "browser":
+			if len(args) > 1 {
+				return usageError("doctor browser accepts no arguments", doctorUsage)
+			}
+			report := doctor.CheckBrowser(contextBackground(), doctor.BrowserOptions{})
+			printDoctorReport(stdout, "browser", report)
+			if !report.OK() {
+				return commandError(exitFailure, "doctor browser checks failed", "")
+			}
+			return nil
 		default:
 			return usageError(fmt.Sprintf("unknown doctor argument %q", args[0]), doctorUsage)
 		}
 	}
-	fmt.Fprintln(stdout, "doctor checks placeholder: ok")
+	fmt.Fprintln(stdout, "doctor checks: ok")
+	fmt.Fprintln(stdout, "run `surveyctl doctor browser` for browser preflight checks")
 	return nil
+}
+
+func printDoctorReport(stdout io.Writer, name string, report doctor.Report) {
+	fmt.Fprintf(stdout, "%s doctor:\n", name)
+	for _, check := range report.Checks {
+		fmt.Fprintf(stdout, "  [%s] %s: %s\n", check.Status, check.Name, check.Message)
+	}
+}
+
+func contextBackground() context.Context {
+	return context.Background()
 }
 
 func usageError(msg string, usage string) error {
