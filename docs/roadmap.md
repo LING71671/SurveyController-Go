@@ -197,14 +197,21 @@
 ### Phase 1：腾讯 API Parser
 
 - URL 识别。
-- session/meta/questions API。
+- survey id/hash 提取。
+- session/meta/questions API client skeleton。
+- locale fallback。
+- 可注入 HTTP client。
 - 登录要求识别。
 - provider type 映射。
+- 附加填空选项、多选上下限、矩阵行列映射。
 
 ### Phase 2：Credamo Browser Parser
 
-- 页面题目抽取。
-- 动态显隐题采集。
+- DOM snapshot parser。
+- 页面题目抽取 JS 输出结构。
+- 强制选项、算术陷阱题、强制填空纯函数识别。
+- 动态显隐题采集 skeleton。
+- 翻页和去重策略。
 - 强制选项和强制填空。
 
 ### Phase 3：三平台 Fixture
@@ -212,6 +219,7 @@
 - 问卷星 HTML。
 - 腾讯 API JSON。
 - Credamo DOM 抽取 JSON。
+- 原 Python 项目关键 parser 单测迁移。
 
 ## V0.9 细分
 
@@ -220,6 +228,7 @@
 - `browser` 模式跑通 mock 和最小真实链路。
 - `http` 模式能力检查。
 - `hybrid` 模式能力选择。
+- provider runner/detector 契约。
 
 ### Phase 2：提交判定
 
@@ -227,6 +236,8 @@
 - 验证页识别。
 - 登录要求识别。
 - 设备次数上限识别。
+- 提交成功短路信号。
+- provider 校验文案提取。
 
 ### Phase 3：性能和稳定性
 
@@ -234,6 +245,7 @@
 - Answer planner benchmark。
 - Worker pool benchmark。
 - 浏览器资源回收回归。
+- 真实 browser doctor probe，按环境跳过集成测试。
 
 ## V1.0 边界
 
