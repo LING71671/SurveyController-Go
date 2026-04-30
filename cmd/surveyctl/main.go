@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hungryM0/SurveyController-go/internal/version"
+	"github.com/LING71671/SurveyController-go/internal/version"
 )
 
 const usage = `surveyctl is the SurveyController-go command line tool.

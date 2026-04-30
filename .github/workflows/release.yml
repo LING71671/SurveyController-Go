@@ -47,7 +47,7 @@ jobs:
         run: |
           mkdir -p dist
           go build -trimpath \
-            -ldflags "-s -w -X github.com/hungryM0/SurveyController-go/internal/version.Version=${GITHUB_REF_NAME} -X github.com/hungryM0/SurveyController-go/internal/version.Commit=${GITHUB_SHA}" \
+            -ldflags "-s -w -X github.com/LING71671/SurveyController-go/internal/version.Version=${GITHUB_REF_NAME} -X github.com/LING71671/SurveyController-go/internal/version.Commit=${GITHUB_SHA}" \
             -o "dist/surveyctl-${GOOS}-${GOARCH}${{ matrix.ext }}" \
             ./cmd/surveyctl
 

@@ -1,6 +1,6 @@
 package config
 
-import "github.com/hungryM0/SurveyController-go/internal/engine"
+import "github.com/LING71671/SurveyController-go/internal/engine"
 
 type RuntimeConfig struct {
 	Engine engine.Mode `json:"engine"`
