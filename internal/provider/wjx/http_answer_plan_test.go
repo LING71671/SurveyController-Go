@@ -59,6 +59,31 @@ func TestBuildHTTPSubmissionDraftFromAnswerPlan(t *testing.T) {
 	}
 }
 
+func TestHTTPAnswerSchemaBuildSubmissionDraft(t *testing.T) {
+	schema, err := CompileHTTPAnswerSchema(testAnswerPlanSurvey())
+	if err != nil {
+		t.Fatalf("CompileHTTPAnswerSchema() returned error: %v", err)
+	}
+
+	draft, err := schema.BuildSubmissionDraft(answerplan.Plan{
+		Answers: []answerplan.QuestionAnswer{
+			{QuestionID: "q1", OptionIDs: []string{"a"}},
+			{QuestionID: "q2", OptionIDs: []string{"b", "c"}},
+			{QuestionID: "q3", Value: "4"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildSubmissionDraft() returned error: %v", err)
+	}
+
+	if draft.Endpoint != "https://www.wjx.cn/joinnew/processjq.ashx" {
+		t.Fatalf("Endpoint = %q, want process endpoint", draft.Endpoint)
+	}
+	if draft.Form.Get("q1") != "1" || draft.Form.Get("q2") != "B,C" || draft.Form.Get("q3") != "4" {
+		t.Fatalf("Form = %+v, want mapped answers", draft.Form)
+	}
+}
+
 func TestBuildHTTPAnswersSupportsDirectValues(t *testing.T) {
 	survey := testAnswerPlanSurvey()
 
