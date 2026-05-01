@@ -130,6 +130,18 @@ func TestResultFromDetectionMapsStates(t *testing.T) {
 			wantDefaultMessage: string(provider.SubmissionStateDeviceQuotaLimited),
 		},
 		{
+			name: "rate limited",
+			detection: provider.SubmissionDetection{
+				State: provider.SubmissionStateRateLimited,
+			},
+			wantTerminal:       true,
+			wantStop:           true,
+			wantErr:            true,
+			wantErrCode:        apperr.CodeRateLimited,
+			wantDefaultState:   provider.SubmissionStateRateLimited,
+			wantDefaultMessage: string(provider.SubmissionStateRateLimited),
+		},
+		{
 			name: "explicit stop",
 			detection: provider.SubmissionDetection{
 				State:      provider.SubmissionStateFailure,

@@ -70,7 +70,8 @@ func shouldStopForSubmissionState(state provider.SubmissionState) bool {
 	switch state {
 	case provider.SubmissionStateVerificationRequired,
 		provider.SubmissionStateLoginRequired,
-		provider.SubmissionStateDeviceQuotaLimited:
+		provider.SubmissionStateDeviceQuotaLimited,
+		provider.SubmissionStateRateLimited:
 		return true
 	default:
 		return false

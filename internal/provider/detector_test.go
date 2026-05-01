@@ -19,6 +19,7 @@ func TestSubmissionStateTerminal(t *testing.T) {
 		{state: SubmissionStateVerificationRequired, want: true},
 		{state: SubmissionStateLoginRequired, want: true},
 		{state: SubmissionStateDeviceQuotaLimited, want: true},
+		{state: SubmissionStateRateLimited, want: true},
 	}
 
 	for _, tt := range tests {
@@ -40,6 +41,7 @@ func TestSubmissionStateErrorCode(t *testing.T) {
 		{state: SubmissionStateVerificationRequired, code: apperr.CodeVerificationNeeded, ok: true},
 		{state: SubmissionStateLoginRequired, code: apperr.CodeLoginRequired, ok: true},
 		{state: SubmissionStateDeviceQuotaLimited, code: apperr.CodeDeviceQuotaLimited, ok: true},
+		{state: SubmissionStateRateLimited, code: apperr.CodeRateLimited, ok: true},
 	}
 
 	for _, tt := range tests {

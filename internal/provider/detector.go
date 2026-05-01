@@ -16,6 +16,7 @@ const (
 	SubmissionStateVerificationRequired SubmissionState = "verification_required"
 	SubmissionStateLoginRequired        SubmissionState = "login_required"
 	SubmissionStateDeviceQuotaLimited   SubmissionState = "device_quota_limited"
+	SubmissionStateRateLimited          SubmissionState = "rate_limited"
 )
 
 type SubmissionDetection struct {
@@ -45,7 +46,8 @@ func (s SubmissionState) Terminal() bool {
 		SubmissionStateFailure,
 		SubmissionStateVerificationRequired,
 		SubmissionStateLoginRequired,
-		SubmissionStateDeviceQuotaLimited:
+		SubmissionStateDeviceQuotaLimited,
+		SubmissionStateRateLimited:
 		return true
 	default:
 		return false
@@ -62,6 +64,8 @@ func (s SubmissionState) ErrorCode() (apperr.Code, bool) {
 		return apperr.CodeLoginRequired, true
 	case SubmissionStateDeviceQuotaLimited:
 		return apperr.CodeDeviceQuotaLimited, true
+	case SubmissionStateRateLimited:
+		return apperr.CodeRateLimited, true
 	default:
 		return "", false
 	}
