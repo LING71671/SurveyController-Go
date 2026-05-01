@@ -36,9 +36,21 @@ func SubmissionTasksFromPlan(rng *rand.Rand, plan Plan, submitter AnswerPlanSubm
 	if err := New().ValidatePlan(plan); err != nil {
 		return nil, err
 	}
-	answerPlans, err := BuildAnswerPlans(rng, plan.Questions, plan.Target)
-	if err != nil {
-		return nil, err
+	if submitter == nil {
+		return nil, fmt.Errorf("answer plan submitter is required")
 	}
-	return SubmissionTasksFromAnswerPlans(submitter, answerPlans)
+
+	tasks := make([]SubmissionTask, 0, plan.Target)
+	for i := 0; i < plan.Target; i++ {
+		answerPlan, err := BuildAnswerPlan(rng, plan.Questions)
+		if err != nil {
+			return nil, fmt.Errorf("answer plan %d: %w", i+1, err)
+		}
+		taskPlan := answerPlan
+		tasks = append(tasks, func(ctx context.Context, workerID int) (engine.SubmissionResult, error) {
+			_ = workerID
+			return submitter.Submit(ctx, taskPlan)
+		})
+	}
+	return tasks, nil
 }
