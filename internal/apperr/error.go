@@ -18,6 +18,7 @@ const (
 	CodeVerificationNeeded  Code = "verification_required"
 	CodeLoginRequired       Code = "login_required"
 	CodeDeviceQuotaLimited  Code = "device_quota_limited"
+	CodeRateLimited         Code = "rate_limited"
 	CodeProxyUnavailable    Code = "proxy_unavailable"
 	CodeSampleExhausted     Code = "sample_exhausted"
 	CodeUserCancelled       Code = "user_cancelled"
