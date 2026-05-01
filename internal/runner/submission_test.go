@@ -159,6 +159,9 @@ func TestEventForSubmissionResult(t *testing.T) {
 			if event.Type != tt.wantType || event.Level != tt.wantLevel || event.WorkerID != 7 {
 				t.Fatalf("event = %+v, want type %q level %q worker 7", event, tt.wantType, tt.wantLevel)
 			}
+			if event.Time.IsZero() {
+				t.Fatalf("event time is zero: %+v", event)
+			}
 			if event.Fields["state"] != string(tt.result.State) {
 				t.Fatalf("state field = %v, want %q", event.Fields["state"], tt.result.State)
 			}

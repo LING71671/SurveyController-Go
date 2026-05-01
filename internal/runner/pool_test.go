@@ -37,6 +37,34 @@ func TestWorkerPoolRecordsSuccessAndFailure(t *testing.T) {
 	}
 }
 
+func TestWorkerPoolEventsIncludeTimestamps(t *testing.T) {
+	events := make(chan logging.RunEvent, 16)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: 1, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+
+	pool.RunSubmissions(context.Background(), []SubmissionTask{
+		submissionResultTask(engine.SubmissionResult{
+			State:    provider.SubmissionStateSuccess,
+			Message:  "done",
+			Success:  true,
+			Terminal: true,
+		}),
+	})
+
+	for {
+		select {
+		case event := <-events:
+			if event.Time.IsZero() {
+				t.Fatalf("event %q has zero timestamp: %+v", event.Type, event)
+			}
+		default:
+			return
+		}
+	}
+}
+
 func TestWorkerPoolHonorsConcurrency(t *testing.T) {
 	pool, err := NewWorkerPool(PoolOptions{Concurrency: 2})
 	if err != nil {

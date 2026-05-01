@@ -1,0 +1,57 @@
+schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 3
+  concurrency: 2
+  mode: http
+  failure_threshold: 1
+  fail_stop_enabled: true
+  headless: true
+  submit_interval:
+    min_seconds: 0
+    max_seconds: 0
+  answer_duration:
+    min_seconds: 0
+    max_seconds: 0
+  timed_mode:
+    enabled: false
+    refresh_interval_seconds: 3
+proxy:
+  enabled: false
+  source: default
+  occupy_minutes: 1
+reverse_fill:
+  enabled: false
+  format: auto
+  start_row: 1
+random_ua:
+  enabled: false
+  ratios:
+    wechat: 33
+    mobile: 33
+    pc: 34
+questions:
+  - id: q1
+    kind: single
+    required: true
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+        - option_id: b
+          weight: 2
+  - id: q2
+    kind: multiple
+    required: true
+    options:
+      min_selected: 1
+      max_selected: 2
+      weights:
+        - option_id: x
+          weight: 1
+        - option_id: y
+          weight: 1
+        - option_id: z
+          weight: 1

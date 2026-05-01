@@ -37,6 +37,8 @@ go run ./cmd/surveyctl version
 go run ./cmd/surveyctl config validate examples/run.yaml
 go run ./cmd/surveyctl config generate --provider wjx --fixture internal/provider/wjx/testdata/survey.html --url https://www.wjx.cn/vm/example.aspx
 go run ./cmd/surveyctl run --dry-run examples/run.yaml
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 go run ./cmd/surveyctl doctor
 go run ./cmd/surveyctl doctor browser
 ```
@@ -62,6 +64,20 @@ surveyctl v0.1.0
 运行事件会同时支持人类可读文本和 JSON Lines。默认文本用于终端查看，JSON Lines 用于后续脚本、CI 和 UI 订阅。
 
 结构化事件会优先携带机器可读字段，例如提交状态、错误码、失败归因、是否停止、是否需要轮换代理。高并发运行时不能依赖解析人类文案做决策。
+
+当前 `surveyctl run` 已经支持两个本地预览入口：
+
+- `--dry-run`：只编译配置和运行计划，不生成提交任务，不访问网络。
+- `--mock`：使用本地 mock submitter 执行 runner/worker pool/答案计划链路，不访问网络。
+
+mock run 默认输出汇总信息，包括目标数、并发数、成功数、失败数、完成率、成功率和 worker 数。需要观察运行事件时可加：
+
+```powershell
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
+```
+
+`--events jsonl` 面向后续脚本、CI 和轻量 GUI 外壳；`v1.0` 前不会把 GUI 放进核心，但事件流会保持足够稳定，让 UI 只做薄订阅层。
 
 ## 开发节奏
 

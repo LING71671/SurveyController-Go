@@ -73,15 +73,12 @@ enqueue:
 	wg.Wait()
 
 	snapshot := p.state.Snapshot()
-	p.emit(logging.RunEvent{
-		Type:    logging.EventRunFinished,
-		Level:   logging.LevelInfo,
-		Message: "run finished",
-		Fields: map[string]any{
-			"successes": snapshot.Successes,
-			"failures":  snapshot.Failures,
-		},
-	})
+	event := logging.NewEvent(logging.EventRunFinished, "run finished")
+	event.Fields = map[string]any{
+		"successes": snapshot.Successes,
+		"failures":  snapshot.Failures,
+	}
+	p.emit(event)
 	return snapshot
 }
 
@@ -117,12 +114,9 @@ enqueue:
 
 func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task) {
 	p.state.SetWorkerStatus(workerID, WorkerStatusRunning, "worker started")
-	p.emit(logging.RunEvent{
-		Type:     logging.EventWorkerStarted,
-		Level:    logging.LevelInfo,
-		WorkerID: workerID,
-		Message:  "worker started",
-	})
+	event := logging.NewEvent(logging.EventWorkerStarted, "worker started")
+	event.WorkerID = workerID
+	p.emit(event)
 	defer p.state.SetWorkerStatus(workerID, WorkerStatusStopped, "worker stopped")
 
 	for {
@@ -136,12 +130,9 @@ func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task
 			if err := task(ctx, workerID); err != nil {
 				p.state.RecordFailureWithCode(workerID, err.Error(), errorCode(err))
 				if p.eventsEnabled() {
-					event := logging.RunEvent{
-						Type:     logging.EventSubmissionFailure,
-						Level:    logging.LevelError,
-						WorkerID: workerID,
-						Message:  err.Error(),
-					}
+					event := logging.NewEvent(logging.EventSubmissionFailure, err.Error())
+					event.Level = logging.LevelError
+					event.WorkerID = workerID
 					addErrorFields(&event, err)
 					p.emit(event)
 				}
@@ -149,12 +140,9 @@ func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task
 			}
 			p.state.RecordSuccess(workerID)
 			if p.eventsEnabled() {
-				p.emit(logging.RunEvent{
-					Type:     logging.EventSubmissionSuccess,
-					Level:    logging.LevelInfo,
-					WorkerID: workerID,
-					Message:  "submission succeeded",
-				})
+				event := logging.NewEvent(logging.EventSubmissionSuccess, "submission succeeded")
+				event.WorkerID = workerID
+				p.emit(event)
 			}
 		}
 	}
@@ -176,12 +164,9 @@ func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <
 			if err != nil {
 				p.state.RecordFailureWithCode(workerID, err.Error(), errorCode(err))
 				if p.eventsEnabled() {
-					event := logging.RunEvent{
-						Type:     logging.EventSubmissionFailure,
-						Level:    logging.LevelError,
-						WorkerID: workerID,
-						Message:  err.Error(),
-					}
+					event := logging.NewEvent(logging.EventSubmissionFailure, err.Error())
+					event.Level = logging.LevelError
+					event.WorkerID = workerID
 					addErrorFields(&event, err)
 					p.emit(event)
 				}
@@ -197,26 +182,20 @@ func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <
 
 func (p *WorkerPool) startWorker(workerID int) {
 	p.state.SetWorkerStatus(workerID, WorkerStatusRunning, "worker started")
-	p.emit(logging.RunEvent{
-		Type:     logging.EventWorkerStarted,
-		Level:    logging.LevelInfo,
-		WorkerID: workerID,
-		Message:  "worker started",
-	})
+	event := logging.NewEvent(logging.EventWorkerStarted, "worker started")
+	event.WorkerID = workerID
+	p.emit(event)
 }
 
 func (p *WorkerPool) finishRun() StateSnapshot {
 	snapshot := p.state.Snapshot()
-	p.emit(logging.RunEvent{
-		Type:    logging.EventRunFinished,
-		Level:   logging.LevelInfo,
-		Message: "run finished",
-		Fields: map[string]any{
-			"successes":      snapshot.Successes,
-			"failures":       snapshot.Failures,
-			"stop_requested": snapshot.StopRequested,
-		},
-	})
+	event := logging.NewEvent(logging.EventRunFinished, "run finished")
+	event.Fields = map[string]any{
+		"successes":      snapshot.Successes,
+		"failures":       snapshot.Failures,
+		"stop_requested": snapshot.StopRequested,
+	}
+	p.emit(event)
 	return snapshot
 }
 
