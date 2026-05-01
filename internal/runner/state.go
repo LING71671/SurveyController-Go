@@ -145,8 +145,12 @@ func (s *RunState) Snapshot() StateSnapshot {
 }
 
 func (s *RunState) ShouldStop() bool {
-	snapshot := s.Snapshot()
-	return snapshot.StopRequested || snapshot.TargetReached() || snapshot.FailureThresholdReached()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.stopRequested ||
+		(s.target > 0 && s.success >= s.target) ||
+		(s.threshold > 0 && s.failure >= s.threshold)
 }
 
 func (s StateSnapshot) TargetReached() bool {
