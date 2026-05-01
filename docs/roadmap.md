@@ -233,6 +233,16 @@
 - `hybrid` 模式能力选择。
 - provider runner/detector 契约。
 
+### Phase 1.5：HTTP-first 高并发主路径
+
+- WJX HTTP submission draft。
+- WJX HTTP mock executor，不访问网络。
+- WJX HTTP response detector。
+- AnswerPlan 最小闭环，先覆盖单选、多选、评分/量表。
+- HTTP path benchmark，覆盖 1000、5000 轻量任务和分配基线。
+- Provider capability gate：只有显式 `SubmitHTTP` 才允许 `http` 模式真实执行。
+- Browser 保持小池兼容兜底，不作为高并发主线。
+
 ### Phase 2：提交判定
 
 - 完成页识别。
