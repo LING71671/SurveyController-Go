@@ -12,7 +12,7 @@ import (
 type Task func(ctx context.Context, workerID int) error
 type SubmissionTask func(ctx context.Context, workerID int) (engine.SubmissionResult, error)
 
-const DefaultMaxWorkerConcurrency = 1000
+const DefaultMaxWorkerConcurrency = engine.LightWorkerConcurrencyBaseline
 
 type PoolOptions struct {
 	Concurrency      int

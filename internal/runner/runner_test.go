@@ -207,6 +207,7 @@ func TestValidatePlanRejectsInvalidValues(t *testing.T) {
 		{name: "target", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Concurrency: 1}, want: "target"},
 		{name: "concurrency", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1}, want: "concurrency"},
 		{name: "max concurrency", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1, Concurrency: DefaultMaxWorkerConcurrency + 1}, want: "concurrency"},
+		{name: "browser concurrency profile", plan: Plan{Mode: engine.ModeBrowser, Provider: "mock", URL: "https://example.com", Target: 1, Concurrency: engine.BrowserWorkerConcurrencyLimit + 1}, want: "browser mode"},
 		{name: "failure threshold", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1, Concurrency: 1, FailureThreshold: -1}, want: "failure threshold"},
 	}
 
@@ -215,6 +216,23 @@ func TestValidatePlanRejectsInvalidValues(t *testing.T) {
 			err := New().ValidatePlan(tt.plan)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("ValidatePlan() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidatePlanAllowsLightConcurrencyProfiles(t *testing.T) {
+	for _, mode := range []engine.Mode{engine.ModeHTTP, engine.ModeHybrid} {
+		t.Run(mode.String(), func(t *testing.T) {
+			plan := Plan{
+				Mode:        mode,
+				Provider:    "mock",
+				URL:         "https://example.com",
+				Target:      1,
+				Concurrency: DefaultMaxWorkerConcurrency,
+			}
+			if err := New().ValidatePlan(plan); err != nil {
+				t.Fatalf("ValidatePlan() returned error: %v", err)
 			}
 		})
 	}

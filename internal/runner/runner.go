@@ -93,7 +93,8 @@ func CompilePlan(cfg config.RunConfig) (Plan, error) {
 }
 
 func (r *Runner) ValidatePlan(plan Plan) error {
-	if _, err := engine.ParseMode(plan.Mode.String()); err != nil {
+	mode, err := engine.ParseMode(plan.Mode.String())
+	if err != nil {
 		return err
 	}
 	if strings.TrimSpace(plan.Provider) == "" {
@@ -108,8 +109,8 @@ func (r *Runner) ValidatePlan(plan Plan) error {
 	if plan.Concurrency <= 0 {
 		return fmt.Errorf("concurrency must be greater than 0")
 	}
-	if plan.Concurrency > DefaultMaxWorkerConcurrency {
-		return fmt.Errorf("concurrency must not exceed %d", DefaultMaxWorkerConcurrency)
+	if err := engine.ValidateConcurrency(mode, plan.Concurrency); err != nil {
+		return err
 	}
 	if plan.FailureThreshold < 0 {
 		return fmt.Errorf("failure threshold must not be negative")
