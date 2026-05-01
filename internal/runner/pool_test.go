@@ -123,6 +123,42 @@ func TestWorkerPoolStopsOnContextCancel(t *testing.T) {
 	}
 }
 
+func TestWorkerPoolStartsNoMoreWorkersThanTasks(t *testing.T) {
+	events := make(chan logging.RunEvent, 16)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 10, Target: 2, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+
+	snapshot := pool.RunSubmissions(context.Background(), []SubmissionTask{
+		submissionResultTask(engine.SubmissionResult{State: provider.SubmissionStateSuccess, Success: true}),
+		submissionResultTask(engine.SubmissionResult{State: provider.SubmissionStateSuccess, Success: true}),
+	})
+
+	if snapshot.Successes != 2 || len(snapshot.Workers) != 2 {
+		t.Fatalf("snapshot = %+v, want two successes from two workers", snapshot)
+	}
+	if got := countEvents(events, logging.EventWorkerStarted); got != 2 {
+		t.Fatalf("worker started events = %d, want 2", got)
+	}
+}
+
+func TestWorkerPoolHandlesEmptyTaskListWithoutWorkers(t *testing.T) {
+	events := make(chan logging.RunEvent, 8)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 10, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+
+	snapshot := pool.RunSubmissions(context.Background(), nil)
+	if snapshot.Successes != 0 || snapshot.Failures != 0 || len(snapshot.Workers) != 0 {
+		t.Fatalf("snapshot = %+v, want no work recorded", snapshot)
+	}
+	if got := countEvents(events, logging.EventWorkerStarted); got != 0 {
+		t.Fatalf("worker started events = %d, want 0", got)
+	}
+}
+
 func TestWorkerPoolRunSubmissionsRecordsResults(t *testing.T) {
 	events := make(chan logging.RunEvent, 16)
 	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: 3, Events: events})
@@ -262,6 +298,20 @@ func findEvent(events <-chan logging.RunEvent, eventType logging.EventType) (log
 			}
 		default:
 			return logging.RunEvent{}, false
+		}
+	}
+}
+
+func countEvents(events <-chan logging.RunEvent, eventType logging.EventType) int {
+	count := 0
+	for {
+		select {
+		case event := <-events:
+			if event.Type == eventType {
+				count++
+			}
+		default:
+			return count
 		}
 	}
 }
