@@ -206,6 +206,7 @@ func TestValidatePlanRejectsInvalidValues(t *testing.T) {
 		{name: "url", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", Target: 1, Concurrency: 1}, want: "url"},
 		{name: "target", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Concurrency: 1}, want: "target"},
 		{name: "concurrency", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1}, want: "concurrency"},
+		{name: "max concurrency", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1, Concurrency: DefaultMaxWorkerConcurrency + 1}, want: "concurrency"},
 		{name: "failure threshold", plan: Plan{Mode: engine.ModeHybrid, Provider: "mock", URL: "https://example.com", Target: 1, Concurrency: 1, FailureThreshold: -1}, want: "failure threshold"},
 	}
 

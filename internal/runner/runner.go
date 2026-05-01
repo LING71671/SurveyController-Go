@@ -108,6 +108,9 @@ func (r *Runner) ValidatePlan(plan Plan) error {
 	if plan.Concurrency <= 0 {
 		return fmt.Errorf("concurrency must be greater than 0")
 	}
+	if plan.Concurrency > DefaultMaxWorkerConcurrency {
+		return fmt.Errorf("concurrency must not exceed %d", DefaultMaxWorkerConcurrency)
+	}
 	if plan.FailureThreshold < 0 {
 		return fmt.Errorf("failure threshold must not be negative")
 	}
