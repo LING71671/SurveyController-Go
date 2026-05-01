@@ -11,7 +11,8 @@ import (
 type HTTPAnswerPlan = answerplan.Plan
 type HTTPQuestionAnswer = answerplan.QuestionAnswer
 
-type httpAnswerSchema struct {
+type HTTPAnswerSchema struct {
+	surveyURL string
 	questions map[string]httpQuestionSpec
 }
 
@@ -22,21 +23,41 @@ type httpQuestionSpec struct {
 }
 
 func BuildHTTPSubmissionDraftFromAnswerPlan(survey domain.SurveyDefinition, plan answerplan.Plan) (HTTPSubmissionDraft, error) {
-	answers, err := BuildHTTPAnswers(survey, plan)
+	schema, err := CompileHTTPAnswerSchema(survey)
 	if err != nil {
 		return HTTPSubmissionDraft{}, err
 	}
-	return BuildHTTPSubmissionDraft(survey.URL, answers)
+	return schema.BuildSubmissionDraft(plan)
+}
+
+func (s HTTPAnswerSchema) BuildSubmissionDraft(plan answerplan.Plan) (HTTPSubmissionDraft, error) {
+	answers, err := s.BuildAnswers(plan)
+	if err != nil {
+		return HTTPSubmissionDraft{}, err
+	}
+	return BuildHTTPSubmissionDraft(s.surveyURL, answers)
 }
 
 func BuildHTTPAnswers(survey domain.SurveyDefinition, plan answerplan.Plan) (map[string]string, error) {
-	if plan.Empty() {
-		return nil, fmt.Errorf("answer plan is required")
-	}
-
-	schema, err := compileHTTPAnswerSchema(survey.Questions)
+	schema, err := CompileHTTPAnswerSchema(survey)
 	if err != nil {
 		return nil, err
+	}
+	return schema.BuildAnswers(plan)
+}
+
+func CompileHTTPAnswerSchema(survey domain.SurveyDefinition) (HTTPAnswerSchema, error) {
+	schema, err := compileHTTPAnswerSchema(survey.Questions)
+	if err != nil {
+		return HTTPAnswerSchema{}, err
+	}
+	schema.surveyURL = strings.TrimSpace(survey.URL)
+	return schema, nil
+}
+
+func (s HTTPAnswerSchema) BuildAnswers(plan answerplan.Plan) (map[string]string, error) {
+	if plan.Empty() {
+		return nil, fmt.Errorf("answer plan is required")
 	}
 
 	answers := make(map[string]string, len(plan.Answers))
@@ -46,7 +67,7 @@ func BuildHTTPAnswers(survey domain.SurveyDefinition, plan answerplan.Plan) (map
 			return nil, fmt.Errorf("question %q has duplicate answers", questionID)
 		}
 
-		value, err := schema.mapAnswer(planned)
+		value, err := s.mapAnswer(planned)
 		if err != nil {
 			return nil, fmt.Errorf("question %q: %w", questionID, err)
 		}
@@ -55,18 +76,18 @@ func BuildHTTPAnswers(survey domain.SurveyDefinition, plan answerplan.Plan) (map
 	return answers, nil
 }
 
-func compileHTTPAnswerSchema(questions []domain.QuestionDefinition) (httpAnswerSchema, error) {
-	schema := httpAnswerSchema{
+func compileHTTPAnswerSchema(questions []domain.QuestionDefinition) (HTTPAnswerSchema, error) {
+	schema := HTTPAnswerSchema{
 		questions: make(map[string]httpQuestionSpec, len(questions)),
 	}
 	for _, question := range questions {
 		spec, err := compileHTTPQuestionSpec(question)
 		if err != nil {
-			return httpAnswerSchema{}, err
+			return HTTPAnswerSchema{}, err
 		}
 		if spec.id != "" {
 			if _, exists := schema.questions[spec.id]; exists {
-				return httpAnswerSchema{}, fmt.Errorf("question %q is defined more than once", spec.id)
+				return HTTPAnswerSchema{}, fmt.Errorf("question %q is defined more than once", spec.id)
 			}
 			schema.questions[spec.id] = spec
 		}
@@ -107,7 +128,7 @@ func compileHTTPOptionValue(option domain.OptionDefinition) (string, string, err
 	return id, value, nil
 }
 
-func (s httpAnswerSchema) mapAnswer(planned answerplan.QuestionAnswer) (string, error) {
+func (s HTTPAnswerSchema) mapAnswer(planned answerplan.QuestionAnswer) (string, error) {
 	questionID := planned.NormalizedQuestionID()
 	if questionID == "" {
 		return "", fmt.Errorf("question id is required")
