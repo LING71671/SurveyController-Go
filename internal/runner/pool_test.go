@@ -66,6 +66,24 @@ func TestWorkerPoolHonorsConcurrency(t *testing.T) {
 	}
 }
 
+func TestWorkerPoolSupportsThousandLightweightWorkers(t *testing.T) {
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: DefaultMaxWorkerConcurrency, Target: DefaultMaxWorkerConcurrency})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+	tasks := make([]Task, 0, DefaultMaxWorkerConcurrency)
+	for i := 0; i < DefaultMaxWorkerConcurrency; i++ {
+		tasks = append(tasks, func(context.Context, int) error {
+			return nil
+		})
+	}
+
+	snapshot := pool.Run(context.Background(), tasks)
+	if snapshot.Successes != DefaultMaxWorkerConcurrency || snapshot.Failures != 0 {
+		t.Fatalf("snapshot counts = %d/%d, want %d/0", snapshot.Successes, snapshot.Failures, DefaultMaxWorkerConcurrency)
+	}
+}
+
 func TestWorkerPoolStopsAtTarget(t *testing.T) {
 	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: 2})
 	if err != nil {
@@ -215,6 +233,9 @@ func TestWorkerPoolRunSubmissionsRecordsTaskError(t *testing.T) {
 func TestNewWorkerPoolRejectsInvalidOptions(t *testing.T) {
 	if _, err := NewWorkerPool(PoolOptions{}); err == nil {
 		t.Fatal("NewWorkerPool(empty) returned nil error, want failure")
+	}
+	if _, err := NewWorkerPool(PoolOptions{Concurrency: DefaultMaxWorkerConcurrency + 1}); err == nil {
+		t.Fatal("NewWorkerPool(too much concurrency) returned nil error, want failure")
 	}
 	if _, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: -1}); err == nil {
 		t.Fatal("NewWorkerPool(negative target) returned nil error, want failure")

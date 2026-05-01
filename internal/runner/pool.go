@@ -12,6 +12,8 @@ import (
 type Task func(ctx context.Context, workerID int) error
 type SubmissionTask func(ctx context.Context, workerID int) (engine.SubmissionResult, error)
 
+const DefaultMaxWorkerConcurrency = 1000
+
 type PoolOptions struct {
 	Concurrency      int
 	Target           int
@@ -27,6 +29,9 @@ type WorkerPool struct {
 func NewWorkerPool(options PoolOptions) (*WorkerPool, error) {
 	if options.Concurrency <= 0 {
 		return nil, fmt.Errorf("concurrency must be greater than 0")
+	}
+	if options.Concurrency > DefaultMaxWorkerConcurrency {
+		return nil, fmt.Errorf("concurrency must not exceed %d", DefaultMaxWorkerConcurrency)
 	}
 	if options.Target < 0 {
 		return nil, fmt.Errorf("target must not be negative")
