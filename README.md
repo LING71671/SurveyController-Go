@@ -39,6 +39,7 @@ go run ./cmd/surveyctl config generate --provider wjx --fixture internal/provide
 go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
+.\scripts\mock-stress.ps1
 go run ./cmd/surveyctl doctor
 go run ./cmd/surveyctl doctor browser
 ```
@@ -76,6 +77,14 @@ mock run 默认输出汇总信息，包括目标数、并发数、成功数、�
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurrency 1000 --seed 7
 ```
 
+也可以使用脚本复现默认 1000 并发 mock 压测：
+
+```powershell
+.\scripts\mock-stress.ps1
+.\scripts\mock-stress.ps1 -Json
+.\scripts\mock-stress.ps1 -Target 5 -Concurrency 1 -FailEvery 2
+```
+
 需要观察运行事件时可加：
 
 ```powershell
@@ -104,5 +113,6 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 - [开发指南](docs/development.md)
 - [架构说明](docs/architecture.md)
 - [路线图](docs/roadmap.md)
+- [性能与压测](docs/performance.md)
 - [原项目分析](docs/discovery/original-project-analysis.md)
 - [运行闭环对齐复盘](docs/discovery/original-runtime-alignment-2026-04-30.md)
