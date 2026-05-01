@@ -108,6 +108,22 @@ func TestNewTimedRunPlanReportIgnoresNonPositiveDuration(t *testing.T) {
 	}
 }
 
+func TestRunPlanReportWithResourceMetrics(t *testing.T) {
+	report := NewRunPlanReport(Plan{Target: 1}, StateSnapshot{Successes: 1}).WithResourceMetrics(RunResourceMetrics{
+		Goroutines:      8,
+		HeapAllocBytes:  1024,
+		HeapAllocDelta:  -128,
+		TotalAllocDelta: 2048,
+	})
+
+	if report.Goroutines != 8 {
+		t.Fatalf("Goroutines = %d, want 8", report.Goroutines)
+	}
+	if report.HeapAllocBytes != 1024 || report.HeapAllocDelta != -128 || report.TotalAllocDelta != 2048 {
+		t.Fatalf("resource metrics = %+v, want heap/current/delta/total", report)
+	}
+}
+
 func TestRunPlanReportAvoidsDivideByZero(t *testing.T) {
 	report := NewRunPlanReport(Plan{}, StateSnapshot{})
 

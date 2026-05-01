@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -359,9 +360,11 @@ func runRun(args []string, stdout io.Writer) error {
 	if eventFormat != "" {
 		options.Events, finishEvents = startRunEventStream(stdout, eventFormat, runEventBufferSize(plan))
 	}
+	beforeRuntime := sampleRuntime()
 	startedAt := time.Now()
 	snapshot, err := runner.RunPlanSubmissions(contextBackground(), plan, options)
 	elapsed := time.Since(startedAt)
+	afterRuntime := sampleRuntime()
 	if finishEvents != nil {
 		eventCount, eventErr := finishEvents()
 		if err == nil && eventErr != nil {
@@ -374,7 +377,7 @@ func runRun(args []string, stdout io.Writer) error {
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
 	}
-	return printMockRunSummary(stdout, path, plan, snapshot, seed, elapsed, jsonOutput)
+	return printMockRunSummary(stdout, path, plan, snapshot, seed, elapsed, runtimeMetrics(beforeRuntime, afterRuntime), jsonOutput)
 }
 
 type runPlanOverrides struct {
@@ -444,6 +447,38 @@ func parseRunEventFormat(value string) (logging.Format, error) {
 type runEventStreamResult struct {
 	count int
 	err   error
+}
+
+type runtimeSample struct {
+	heapAlloc  uint64
+	totalAlloc uint64
+	goroutines int
+}
+
+func sampleRuntime() runtimeSample {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return runtimeSample{
+		heapAlloc:  stats.HeapAlloc,
+		totalAlloc: stats.TotalAlloc,
+		goroutines: runtime.NumGoroutine(),
+	}
+}
+
+func runtimeMetrics(before runtimeSample, after runtimeSample) runner.RunResourceMetrics {
+	return runner.RunResourceMetrics{
+		Goroutines:      after.goroutines,
+		HeapAllocBytes:  after.heapAlloc,
+		HeapAllocDelta:  int64(after.heapAlloc) - int64(before.heapAlloc),
+		TotalAllocDelta: subtractUint64(after.totalAlloc, before.totalAlloc),
+	}
+}
+
+func subtractUint64(after uint64, before uint64) uint64 {
+	if after < before {
+		return 0
+	}
+	return after - before
 }
 
 func startRunEventStream(stdout io.Writer, format logging.Format, bufferSize int) (chan<- logging.RunEvent, func() (int, error)) {
@@ -536,6 +571,10 @@ type mockRunSummary struct {
 	SuccessRate       float64 `json:"success_rate"`
 	DurationMS        int64   `json:"duration_ms"`
 	ThroughputPerSec  float64 `json:"throughput_per_second"`
+	Goroutines        int     `json:"goroutines"`
+	HeapAllocBytes    uint64  `json:"heap_alloc_bytes"`
+	HeapAllocDelta    int64   `json:"heap_alloc_delta_bytes"`
+	TotalAllocDelta   uint64  `json:"total_alloc_delta_bytes"`
 	StopRequested     bool    `json:"stop_requested"`
 	StopReason        string  `json:"stop_reason,omitempty"`
 	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
@@ -581,8 +620,8 @@ func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput
 	return nil
 }
 
-func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, elapsed time.Duration, jsonOutput bool) error {
-	report := runner.NewTimedRunPlanReport(plan, snapshot, elapsed)
+func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, elapsed time.Duration, metrics runner.RunResourceMetrics, jsonOutput bool) error {
+	report := runner.NewTimedRunPlanReport(plan, snapshot, elapsed).WithResourceMetrics(metrics)
 	summary := mockRunSummary{
 		Path:              path,
 		Provider:          report.Provider,
@@ -598,6 +637,10 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 		SuccessRate:       report.SuccessRate,
 		DurationMS:        report.DurationMS,
 		ThroughputPerSec:  report.ThroughputPerSec,
+		Goroutines:        report.Goroutines,
+		HeapAllocBytes:    report.HeapAllocBytes,
+		HeapAllocDelta:    report.HeapAllocDelta,
+		TotalAllocDelta:   report.TotalAllocDelta,
 		StopRequested:     report.StopRequested,
 		StopReason:        report.StopReason,
 		StopFailureReason: report.StopFailureReason,
@@ -623,6 +666,10 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 	fmt.Fprintf(stdout, "  success_rate: %s\n", formatPercent(summary.SuccessRate))
 	fmt.Fprintf(stdout, "  duration_ms: %d\n", summary.DurationMS)
 	fmt.Fprintf(stdout, "  throughput_per_second: %.2f\n", summary.ThroughputPerSec)
+	fmt.Fprintf(stdout, "  goroutines: %d\n", summary.Goroutines)
+	fmt.Fprintf(stdout, "  heap_alloc_bytes: %d\n", summary.HeapAllocBytes)
+	fmt.Fprintf(stdout, "  heap_alloc_delta_bytes: %d\n", summary.HeapAllocDelta)
+	fmt.Fprintf(stdout, "  total_alloc_delta_bytes: %d\n", summary.TotalAllocDelta)
 	fmt.Fprintf(stdout, "  stop_requested: %t\n", summary.StopRequested)
 	fmt.Fprintf(stdout, "  workers: %d\n", summary.WorkerCount)
 	fmt.Fprintln(stdout, "  network: disabled (mock)")
