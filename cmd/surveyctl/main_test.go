@@ -346,6 +346,131 @@ questions:
 	}
 }
 
+func TestRunMockRunEventsTextPrintsEventStream(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--events", "text", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(mock events text) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"run_started", "worker_started", "submission_success", "run_finished", "events: 4", "mock run:"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunMockRunEventsJSONLPrintsEventStream(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--events", "jsonl", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(mock events jsonl) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(lines) < 6 {
+		t.Fatalf("stdout lines = %q, want event stream and summary", lines)
+	}
+	var firstEvent map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &firstEvent); err != nil {
+		t.Fatalf("first jsonl event decode failed: %v; line=%q", err, lines[0])
+	}
+	if firstEvent["type"] != "run_started" || firstEvent["level"] != "info" {
+		t.Fatalf("firstEvent = %+v, want run_started info", firstEvent)
+	}
+	if !strings.Contains(stdout.String(), "events: 4") || !strings.Contains(stdout.String(), "mock run:") {
+		t.Fatalf("stdout = %q, want event count and summary", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunMockRejectsEventsWithJSONSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--mock", "--json", "--events", "jsonl"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(mock json events) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "cannot be combined") {
+		t.Fatalf("stderr = %q, want json/events conflict", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunDryRunRejectsEvents(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--dry-run", "--events", "text"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(dry-run events) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "requires --mock") {
+		t.Fatalf("stderr = %q, want dry-run events error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunMockRejectsInvalidEventFormat(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--mock", "--events", "xml"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(invalid events) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "--events must be text or jsonl") {
+		t.Fatalf("stderr = %q, want event format error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
 func TestRunRejectsBothDryRunAndMock(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

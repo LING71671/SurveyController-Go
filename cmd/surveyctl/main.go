@@ -14,6 +14,7 @@ import (
 	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/doctor"
 	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-go/internal/logging"
 	"github.com/LING71671/SurveyController-go/internal/provider/builtin"
 	"github.com/LING71671/SurveyController-go/internal/provider/credamo"
 	"github.com/LING71671/SurveyController-go/internal/provider/tencent"
@@ -30,7 +31,7 @@ Usage:
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json]
-  surveyctl run --mock [path] [--json] [--seed <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -54,7 +55,7 @@ const doctorUsage = `Usage:
 
 const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json]
-  surveyctl run --mock [path] [--json] [--seed <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>]
 `
 
 const (
@@ -249,6 +250,7 @@ func runRun(args []string, stdout io.Writer) error {
 	dryRun := false
 	mockRun := false
 	jsonOutput := false
+	eventFormat := logging.Format("")
 	seed := int64(1)
 	path := "survey.yaml"
 	pathSet := false
@@ -267,6 +269,17 @@ func runRun(args []string, stdout io.Writer) error {
 			mockRun = true
 		case "--json":
 			jsonOutput = true
+		case "--events":
+			value, next, err := readRunFlagValue(args, i, "--events")
+			if err != nil {
+				return err
+			}
+			format, err := parseRunEventFormat(value)
+			if err != nil {
+				return err
+			}
+			eventFormat = format
+			i = next
 		case "--seed":
 			value, next, err := readRunFlagValue(args, i, "--seed")
 			if err != nil {
@@ -292,6 +305,12 @@ func runRun(args []string, stdout io.Writer) error {
 	if !dryRun && !mockRun {
 		return usageError("run requires --dry-run or --mock", runUsage)
 	}
+	if dryRun && eventFormat != "" {
+		return usageError("run --events requires --mock", runUsage)
+	}
+	if jsonOutput && eventFormat != "" {
+		return usageError("run --events cannot be combined with --json summary output", runUsage)
+	}
 
 	plan, err := compileRunPlanFromFile(path)
 	if err != nil {
@@ -308,10 +327,24 @@ func runRun(args []string, stdout io.Writer) error {
 		}
 		return nil
 	}
-	snapshot, err := runner.RunPlanSubmissions(contextBackground(), plan, runner.RunPlanOptions{
+	options := runner.RunPlanOptions{
 		RNG:       rand.New(rand.NewSource(seed)),
 		Submitter: runner.MockAnswerPlanSubmitter{},
-	})
+	}
+	var finishEvents func() (int, error)
+	if eventFormat != "" {
+		options.Events, finishEvents = startRunEventStream(stdout, eventFormat, runEventBufferSize(plan))
+	}
+	snapshot, err := runner.RunPlanSubmissions(contextBackground(), plan, options)
+	if finishEvents != nil {
+		eventCount, eventErr := finishEvents()
+		if err == nil && eventErr != nil {
+			err = eventErr
+		}
+		if err == nil {
+			fmt.Fprintf(stdout, "events: %d\n", eventCount)
+		}
+	}
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
 	}
@@ -339,6 +372,55 @@ func readRunFlagValue(args []string, index int, flag string) (string, int, error
 		return "", index, usageError(fmt.Sprintf("%s requires a value", flag), runUsage)
 	}
 	return args[next], next, nil
+}
+
+func parseRunEventFormat(value string) (logging.Format, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case string(logging.FormatText):
+		return logging.FormatText, nil
+	case string(logging.FormatJSONLines):
+		return logging.FormatJSONLines, nil
+	default:
+		return "", usageError("--events must be text or jsonl", runUsage)
+	}
+}
+
+type runEventStreamResult struct {
+	count int
+	err   error
+}
+
+func startRunEventStream(stdout io.Writer, format logging.Format, bufferSize int) (chan<- logging.RunEvent, func() (int, error)) {
+	events := make(chan logging.RunEvent, bufferSize)
+	done := make(chan runEventStreamResult, 1)
+	go func() {
+		writer := logging.NewEventWriter(stdout, format)
+		count := 0
+		for event := range events {
+			if err := writer.WriteEvent(event); err != nil {
+				done <- runEventStreamResult{count: count, err: err}
+				return
+			}
+			count++
+		}
+		done <- runEventStreamResult{count: count}
+	}()
+	return events, func() (int, error) {
+		close(events)
+		result := <-done
+		return result.count, result.err
+	}
+}
+
+func runEventBufferSize(plan runner.Plan) int {
+	size := plan.Target + plan.Concurrency + 4
+	if size < 16 {
+		return 16
+	}
+	if size > 4096 {
+		return 4096
+	}
+	return size
 }
 
 func runDoctor(args []string, stdout io.Writer) error {
