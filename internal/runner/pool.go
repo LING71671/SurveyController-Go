@@ -49,7 +49,7 @@ func NewWorkerPool(options PoolOptions) (*WorkerPool, error) {
 func (p *WorkerPool) Run(ctx context.Context, tasks []Task) StateSnapshot {
 	p.emit(logging.NewEvent(logging.EventRunStarted, "run started"))
 	workerCount := p.workerCount(len(tasks))
-	taskCh := make(chan Task, workerCount)
+	taskCh := make(chan Task)
 	var wg sync.WaitGroup
 
 	for workerID := 1; workerID <= workerCount; workerID++ {
