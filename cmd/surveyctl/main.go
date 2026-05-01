@@ -384,19 +384,22 @@ type dryRunPlanSummary struct {
 }
 
 type mockRunSummary struct {
-	Path              string `json:"path"`
-	Provider          string `json:"provider"`
-	URL               string `json:"url"`
-	Mode              string `json:"mode"`
-	Target            int    `json:"target"`
-	Concurrency       int    `json:"concurrency"`
-	Seed              int64  `json:"seed"`
-	Successes         int    `json:"successes"`
-	Failures          int    `json:"failures"`
-	StopRequested     bool   `json:"stop_requested"`
-	StopReason        string `json:"stop_reason,omitempty"`
-	StopFailureReason string `json:"stop_failure_reason,omitempty"`
-	WorkerCount       int    `json:"worker_count"`
+	Path              string  `json:"path"`
+	Provider          string  `json:"provider"`
+	URL               string  `json:"url"`
+	Mode              string  `json:"mode"`
+	Target            int     `json:"target"`
+	Concurrency       int     `json:"concurrency"`
+	Seed              int64   `json:"seed"`
+	Successes         int     `json:"successes"`
+	Failures          int     `json:"failures"`
+	Completed         int     `json:"completed"`
+	CompletionRate    float64 `json:"completion_rate"`
+	SuccessRate       float64 `json:"success_rate"`
+	StopRequested     bool    `json:"stop_requested"`
+	StopReason        string  `json:"stop_reason,omitempty"`
+	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
+	WorkerCount       int     `json:"worker_count"`
 }
 
 func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput bool) error {
@@ -439,20 +442,24 @@ func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput
 }
 
 func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, jsonOutput bool) error {
+	report := runner.NewRunPlanReport(plan, snapshot)
 	summary := mockRunSummary{
 		Path:              path,
-		Provider:          plan.Provider,
-		URL:               plan.URL,
-		Mode:              plan.Mode.String(),
-		Target:            plan.Target,
-		Concurrency:       plan.Concurrency,
+		Provider:          report.Provider,
+		URL:               report.URL,
+		Mode:              report.Mode,
+		Target:            report.Target,
+		Concurrency:       report.Concurrency,
 		Seed:              seed,
-		Successes:         snapshot.Successes,
-		Failures:          snapshot.Failures,
-		StopRequested:     snapshot.StopRequested,
-		StopReason:        snapshot.StopReason,
-		StopFailureReason: snapshot.StopFailureReason,
-		WorkerCount:       len(snapshot.Workers),
+		Successes:         report.Successes,
+		Failures:          report.Failures,
+		Completed:         report.Completed,
+		CompletionRate:    report.CompletionRate,
+		SuccessRate:       report.SuccessRate,
+		StopRequested:     report.StopRequested,
+		StopReason:        report.StopReason,
+		StopFailureReason: report.StopFailureReason,
+		WorkerCount:       report.WorkerCount,
 	}
 	if jsonOutput {
 		encoder := json.NewEncoder(stdout)
@@ -469,10 +476,17 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 	fmt.Fprintf(stdout, "  seed: %d\n", summary.Seed)
 	fmt.Fprintf(stdout, "  successes: %d\n", summary.Successes)
 	fmt.Fprintf(stdout, "  failures: %d\n", summary.Failures)
+	fmt.Fprintf(stdout, "  completed: %d\n", summary.Completed)
+	fmt.Fprintf(stdout, "  completion_rate: %s\n", formatPercent(summary.CompletionRate))
+	fmt.Fprintf(stdout, "  success_rate: %s\n", formatPercent(summary.SuccessRate))
 	fmt.Fprintf(stdout, "  stop_requested: %t\n", summary.StopRequested)
 	fmt.Fprintf(stdout, "  workers: %d\n", summary.WorkerCount)
 	fmt.Fprintln(stdout, "  network: disabled (mock)")
 	return nil
+}
+
+func formatPercent(ratio float64) string {
+	return fmt.Sprintf("%.2f%%", ratio*100)
 }
 
 func parseDoctorBrowserArgs(args []string) (bool, error) {
