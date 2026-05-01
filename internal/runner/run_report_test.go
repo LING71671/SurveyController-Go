@@ -2,6 +2,7 @@ package runner
 
 import (
 	"testing"
+	"time"
 
 	"github.com/LING71671/SurveyController-go/internal/engine"
 )
@@ -74,6 +75,36 @@ func TestRunPlanReportTargetReached(t *testing.T) {
 	}
 	if report.HasFailures() {
 		t.Fatalf("HasFailures() = true, want false")
+	}
+}
+
+func TestNewTimedRunPlanReportAddsDurationAndThroughput(t *testing.T) {
+	report := NewTimedRunPlanReport(
+		Plan{Target: 10},
+		StateSnapshot{Successes: 6, Failures: 4},
+		2*time.Second,
+	)
+
+	if report.Completed != 10 {
+		t.Fatalf("Completed = %d, want 10", report.Completed)
+	}
+	if report.DurationMS != 2000 {
+		t.Fatalf("DurationMS = %d, want 2000", report.DurationMS)
+	}
+	if report.ThroughputPerSec != 5 {
+		t.Fatalf("ThroughputPerSec = %.4f, want 5", report.ThroughputPerSec)
+	}
+}
+
+func TestNewTimedRunPlanReportIgnoresNonPositiveDuration(t *testing.T) {
+	report := NewTimedRunPlanReport(
+		Plan{Target: 1},
+		StateSnapshot{Successes: 1},
+		0,
+	)
+
+	if report.DurationMS != 0 || report.ThroughputPerSec != 0 {
+		t.Fatalf("timing = %d/%.4f, want zeros", report.DurationMS, report.ThroughputPerSec)
 	}
 }
 

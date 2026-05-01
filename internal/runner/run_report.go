@@ -1,6 +1,9 @@
 package runner
 
-import "math"
+import (
+	"math"
+	"time"
+)
 
 type RunPlanReport struct {
 	Provider          string  `json:"provider"`
@@ -13,10 +16,22 @@ type RunPlanReport struct {
 	Completed         int     `json:"completed"`
 	CompletionRate    float64 `json:"completion_rate"`
 	SuccessRate       float64 `json:"success_rate"`
+	DurationMS        int64   `json:"duration_ms,omitempty"`
+	ThroughputPerSec  float64 `json:"throughput_per_second,omitempty"`
 	StopRequested     bool    `json:"stop_requested"`
 	StopReason        string  `json:"stop_reason,omitempty"`
 	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
 	WorkerCount       int     `json:"worker_count"`
+}
+
+func NewTimedRunPlanReport(plan Plan, snapshot StateSnapshot, elapsed time.Duration) RunPlanReport {
+	report := NewRunPlanReport(plan, snapshot)
+	if elapsed <= 0 {
+		return report
+	}
+	report.DurationMS = elapsed.Milliseconds()
+	report.ThroughputPerSec = ratioPerSecond(report.Completed, elapsed)
+	return report
 }
 
 func NewRunPlanReport(plan Plan, snapshot StateSnapshot) RunPlanReport {
@@ -56,4 +71,11 @@ func ratio(value int, total int) float64 {
 
 func roundRatio(value float64) float64 {
 	return math.Round(value*10000) / 10000
+}
+
+func ratioPerSecond(value int, elapsed time.Duration) float64 {
+	if value <= 0 || elapsed <= 0 {
+		return 0
+	}
+	return roundRatio(float64(value) / elapsed.Seconds())
 }

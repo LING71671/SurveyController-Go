@@ -70,7 +70,13 @@ surveyctl v0.1.0
 - `--dry-run`：只编译配置和运行计划，不生成提交任务，不访问网络。
 - `--mock`：使用本地 mock submitter 执行 runner/worker pool/答案计划链路，不访问网络。
 
-mock run 默认输出汇总信息，包括目标数、并发数、成功数、失败数、完成率、成功率和 worker 数。需要观察运行事件时可加：
+mock run 默认输出汇总信息，包括目标数、并发数、成功数、失败数、完成率、成功率、耗时、吞吐和 worker 数。需要临时压测不同规模时，可以不用修改 YAML，直接覆盖目标数和并发数：
+
+```powershell
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurrency 1000 --seed 7
+```
+
+需要观察运行事件时可加：
 
 ```powershell
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
