@@ -21,22 +21,12 @@ type SelectionResult struct {
 }
 
 func NormalizeWeights(weights []OptionWeight) ([]OptionWeight, error) {
-	if len(weights) == 0 {
-		return nil, fmt.Errorf("weights are required")
+	total, err := validateAndSumWeights(weights)
+	if err != nil {
+		return nil, err
 	}
 
-	normalized := make([]OptionWeight, 0, len(weights))
-	total := 0.0
-	for _, item := range weights {
-		if item.OptionID == "" {
-			return nil, fmt.Errorf("option id is required")
-		}
-		if item.Weight < 0 {
-			return nil, fmt.Errorf("weight for option %q must not be negative", item.OptionID)
-		}
-		total += item.Weight
-		normalized = append(normalized, item)
-	}
+	normalized := append([]OptionWeight(nil), weights...)
 	if total == 0 {
 		even := 1.0 / float64(len(normalized))
 		for i := range normalized {
@@ -55,20 +45,50 @@ func PickOne(rng *rand.Rand, weights []OptionWeight) (string, error) {
 	if rng == nil {
 		return "", fmt.Errorf("rng is required")
 	}
-	normalized, err := NormalizeWeights(weights)
+	total, err := validateAndSumWeights(weights)
 	if err != nil {
 		return "", err
 	}
+	if total == 0 {
+		return pickEven(rng, weights), nil
+	}
 
-	point := rng.Float64()
+	point := rng.Float64() * total
 	accumulated := 0.0
-	for _, item := range normalized {
+	for _, item := range weights {
 		accumulated += item.Weight
 		if point <= accumulated {
 			return item.OptionID, nil
 		}
 	}
-	return normalized[len(normalized)-1].OptionID, nil
+	return weights[len(weights)-1].OptionID, nil
+}
+
+func validateAndSumWeights(weights []OptionWeight) (float64, error) {
+	if len(weights) == 0 {
+		return 0, fmt.Errorf("weights are required")
+	}
+
+	total := 0.0
+	for _, item := range weights {
+		if item.OptionID == "" {
+			return 0, fmt.Errorf("option id is required")
+		}
+		if item.Weight < 0 {
+			return 0, fmt.Errorf("weight for option %q must not be negative", item.OptionID)
+		}
+		total += item.Weight
+	}
+	return total, nil
+}
+
+func pickEven(rng *rand.Rand, weights []OptionWeight) string {
+	point := rng.Float64() * float64(len(weights))
+	index := int(point)
+	if index >= len(weights) {
+		index = len(weights) - 1
+	}
+	return weights[index].OptionID
 }
 
 func PickMany(rng *rand.Rand, weights []OptionWeight, rule SelectionRule) (SelectionResult, error) {
