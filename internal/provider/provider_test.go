@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/LING71671/SurveyController-go/internal/apperr"
 	"github.com/LING71671/SurveyController-go/internal/domain"
 )
 
@@ -36,6 +38,100 @@ func TestCapabilitiesCanParseAndSubmit(t *testing.T) {
 	}
 	if !capabilities.CanSubmit(modeStub("hybrid")) {
 		t.Fatalf("CanSubmit(hybrid) = false, want true")
+	}
+}
+
+func TestRequireSubmitCapability(t *testing.T) {
+	tests := []struct {
+		name         string
+		provider     Provider
+		mode         ModeValue
+		wantErr      bool
+		wantContains string
+	}{
+		{
+			name: "http allowed",
+			provider: stubProvider{
+				id:           domain.ProviderWJX,
+				capabilities: Capabilities{SubmitHTTP: true},
+			},
+			mode: modeStub("http"),
+		},
+		{
+			name: "http requires submit http",
+			provider: stubProvider{
+				id:           domain.ProviderWJX,
+				capabilities: Capabilities{ParseHTTP: true},
+			},
+			mode:         modeStub("http"),
+			wantErr:      true,
+			wantContains: "http submit",
+		},
+		{
+			name: "browser requires submit browser",
+			provider: stubProvider{
+				id:           domain.ProviderWJX,
+				capabilities: Capabilities{RunBrowser: true},
+			},
+			mode:         modeStub("browser"),
+			wantErr:      true,
+			wantContains: "browser submit",
+		},
+		{
+			name: "hybrid allowed with submit http",
+			provider: stubProvider{
+				id:           domain.ProviderWJX,
+				capabilities: Capabilities{SupportsHybrid: true, SubmitHTTP: true},
+			},
+			mode: modeStub("hybrid"),
+		},
+		{
+			name: "hybrid requires supports hybrid",
+			provider: stubProvider{
+				id:           domain.ProviderWJX,
+				capabilities: Capabilities{SubmitHTTP: true},
+			},
+			mode:         modeStub("hybrid"),
+			wantErr:      true,
+			wantContains: "hybrid submit",
+		},
+		{
+			name:         "nil provider",
+			mode:         modeStub("http"),
+			wantErr:      true,
+			wantContains: "provider is required",
+		},
+		{
+			name: "invalid mode",
+			provider: stubProvider{
+				id:           domain.ProviderWJX,
+				capabilities: Capabilities{SubmitHTTP: true},
+			},
+			mode:         modeStub("magic"),
+			wantErr:      true,
+			wantContains: "unsupported submit mode",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RequireSubmitCapability(tt.provider, tt.mode)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("RequireSubmitCapability() returned nil error, want %q", tt.wantContains)
+				}
+				if !strings.Contains(err.Error(), tt.wantContains) {
+					t.Fatalf("RequireSubmitCapability() error = %v, want %q", err, tt.wantContains)
+				}
+				if !apperr.IsCode(err, apperr.CodeProviderUnsupported) {
+					t.Fatalf("RequireSubmitCapability() error = %v, want provider_unsupported", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("RequireSubmitCapability() returned error: %v", err)
+			}
+		})
 	}
 }
 
@@ -83,8 +179,9 @@ func TestMatchHostAndSuffix(t *testing.T) {
 }
 
 type stubProvider struct {
-	id   ProviderID
-	host string
+	id           ProviderID
+	host         string
+	capabilities Capabilities
 }
 
 type modeStub string
@@ -102,6 +199,9 @@ func (p stubProvider) MatchURL(rawURL string) bool {
 }
 
 func (p stubProvider) Capabilities() Capabilities {
+	if p.capabilities != (Capabilities{}) {
+		return p.capabilities
+	}
 	return Capabilities{ParseHTTP: true}
 }
 

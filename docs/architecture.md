@@ -132,6 +132,7 @@ type ProviderRunner interface {
 - `http` 模式不能静默降级为浏览器。
 - `browser` 模式不能偷偷走 HTTP 提交，除非用户允许 hybrid。
 - `hybrid` 也必须由 provider 显式声明支持。
+- 真实提交路径必须先通过 `provider.RequireSubmitCapability`，`http` 模式只有 provider 显式声明 `SubmitHTTP` 才能进入提交。
 - provider 必须给出失败原因，例如“不支持 HTTP 提交”“需要登录”“命中验证”。
 
 ## 执行模式资源 Profile
@@ -218,6 +219,8 @@ HTTP 层围绕 Go `net/http` 设计：
 - HTTP transport、cookie jar 和缓存需要有生命周期边界，避免长时间运行时内存泄漏。
 
 HTTP 快速路径必须通过 provider 能力声明开启。
+
+HTTP 提交能力和 HTTP 解析能力分开声明：`ParseHTTP` 只能表示 provider 可以用 HTTP 获取或解析问卷结构，不能推导出提交能力；真实 HTTP 提交必须显式声明 `SubmitHTTP` 并通过提交能力 gate。命中登录、验证、设备限制、限流或其他风控信号时，只能停止并报告。
 
 ## 答案策略层
 
