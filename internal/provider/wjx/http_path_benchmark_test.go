@@ -11,7 +11,7 @@ import (
 	"github.com/LING71671/SurveyController-go/internal/provider"
 )
 
-var benchmarkHTTPPathDetection provider.SubmissionDetection
+var benchmarkHTTPPathState provider.SubmissionState
 
 func BenchmarkHTTPPathLightTasks(b *testing.B) {
 	for _, taskCount := range []int{1, 1000, 5000} {
@@ -24,38 +24,38 @@ func BenchmarkHTTPPathLightTasks(b *testing.B) {
 func benchmarkHTTPPathLightTasks(b *testing.B, taskCount int) {
 	b.Helper()
 	ctx := context.Background()
-	schema, err := CompileHTTPAnswerSchema(benchmarkSurvey())
-	if err != nil {
-		b.Fatalf("CompileHTTPAnswerSchema() returned error: %v", err)
-	}
 	plan := benchmarkAnswerPlan()
-	executor := staticHTTPSubmissionExecutor{
-		response: HTTPSubmissionResponse{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"text/plain"}},
-			Body:       "提交成功",
+	pipeline, err := NewHTTPSubmissionPipeline(
+		benchmarkProvider{capabilities: provider.Capabilities{SubmitHTTP: true}},
+		engineModeHTTP{},
+		benchmarkSurvey(),
+		staticHTTPSubmissionExecutor{
+			response: HTTPSubmissionResponse{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"text/plain"}},
+				Body:       "提交成功",
+			},
 		},
+	)
+	if err != nil {
+		b.Fatalf("NewHTTPSubmissionPipeline() returned error: %v", err)
 	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var detection provider.SubmissionDetection
+		var state provider.SubmissionState
 		for j := 0; j < taskCount; j++ {
-			draft, err := schema.BuildSubmissionDraft(plan)
+			submissionResult, err := pipeline.Submit(ctx, plan)
 			if err != nil {
-				b.Fatalf("BuildSubmissionDraft() returned error: %v", err)
+				b.Fatalf("Submit() returned error: %v", err)
 			}
-			response, err := ExecuteHTTPSubmission(ctx, executor, draft)
-			if err != nil {
-				b.Fatalf("ExecuteHTTPSubmission() returned error: %v", err)
+			if submissionResult.State != provider.SubmissionStateSuccess {
+				b.Fatalf("state = %q, want success", submissionResult.State)
 			}
-			detection = DetectHTTPSubmissionResponse(response)
-			if detection.State != provider.SubmissionStateSuccess {
-				b.Fatalf("state = %q, want success", detection.State)
-			}
+			state = submissionResult.State
 		}
-		benchmarkHTTPPathDetection = detection
+		benchmarkHTTPPathState = state
 	}
 }
 
@@ -69,6 +69,32 @@ func (e staticHTTPSubmissionExecutor) ExecuteHTTPSubmission(ctx context.Context,
 	}
 	_ = draft
 	return e.response, nil
+}
+
+type benchmarkProvider struct {
+	capabilities provider.Capabilities
+}
+
+func (benchmarkProvider) ID() provider.ProviderID {
+	return domain.ProviderWJX
+}
+
+func (benchmarkProvider) MatchURL(rawURL string) bool {
+	return provider.MatchHostSuffix(rawURL, "wjx.cn")
+}
+
+func (p benchmarkProvider) Capabilities() provider.Capabilities {
+	return p.capabilities
+}
+
+func (benchmarkProvider) Parse(context.Context, string) (provider.SurveyDefinition, error) {
+	return provider.SurveyDefinition{}, nil
+}
+
+type engineModeHTTP struct{}
+
+func (engineModeHTTP) String() string {
+	return "http"
 }
 
 func benchmarkSurvey() domain.SurveyDefinition {

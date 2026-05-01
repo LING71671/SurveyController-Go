@@ -21,7 +21,12 @@ func TestHTTPSubmissionPipelineSubmitSuccess(t *testing.T) {
 			Body:       "提交成功",
 		},
 	}
-	result, err := testHTTPSubmissionPipeline(executor, provider.Capabilities{SubmitHTTP: true}).Submit(context.Background(), testPipelineAnswerPlan())
+	pipeline, err := testHTTPSubmissionPipeline(executor, provider.Capabilities{SubmitHTTP: true})
+	if err != nil {
+		t.Fatalf("NewHTTPSubmissionPipeline() returned error: %v", err)
+	}
+
+	result, err := pipeline.Submit(context.Background(), testPipelineAnswerPlan())
 	if err != nil {
 		t.Fatalf("Submit() returned error: %v", err)
 	}
@@ -38,9 +43,9 @@ func TestHTTPSubmissionPipelineRequiresSubmitCapability(t *testing.T) {
 	executor := &pipelineRecordingExecutor{
 		response: HTTPSubmissionResponse{StatusCode: http.StatusOK, Body: "提交成功"},
 	}
-	_, err := testHTTPSubmissionPipeline(executor, provider.Capabilities{ParseHTTP: true}).Submit(context.Background(), testPipelineAnswerPlan())
+	_, err := testHTTPSubmissionPipeline(executor, provider.Capabilities{ParseHTTP: true})
 	if !apperr.IsCode(err, apperr.CodeProviderUnsupported) {
-		t.Fatalf("Submit() error = %v, want provider_unsupported", err)
+		t.Fatalf("NewHTTPSubmissionPipeline() error = %v, want provider_unsupported", err)
 	}
 	if len(executor.calls) != 0 {
 		t.Fatalf("executor was called despite capability gate failure: %+v", executor.calls)
@@ -48,15 +53,19 @@ func TestHTTPSubmissionPipelineRequiresSubmitCapability(t *testing.T) {
 }
 
 func TestHTTPSubmissionPipelineRejectsMissingExecutor(t *testing.T) {
-	_, err := testHTTPSubmissionPipeline(nil, provider.Capabilities{SubmitHTTP: true}).Submit(context.Background(), testPipelineAnswerPlan())
+	_, err := testHTTPSubmissionPipeline(nil, provider.Capabilities{SubmitHTTP: true})
 	if err == nil || !strings.Contains(err.Error(), "executor") {
-		t.Fatalf("Submit() error = %v, want executor error", err)
+		t.Fatalf("NewHTTPSubmissionPipeline() error = %v, want executor error", err)
 	}
 }
 
 func TestHTTPSubmissionPipelineReturnsExecutorError(t *testing.T) {
 	wantErr := errors.New("offline")
-	_, err := testHTTPSubmissionPipeline(&pipelineRecordingExecutor{err: wantErr}, provider.Capabilities{SubmitHTTP: true}).Submit(context.Background(), testPipelineAnswerPlan())
+	pipeline, err := testHTTPSubmissionPipeline(&pipelineRecordingExecutor{err: wantErr}, provider.Capabilities{SubmitHTTP: true})
+	if err != nil {
+		t.Fatalf("NewHTTPSubmissionPipeline() returned error: %v", err)
+	}
+	_, err = pipeline.Submit(context.Background(), testPipelineAnswerPlan())
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("Submit() error = %v, want %v", err, wantErr)
 	}
@@ -75,9 +84,13 @@ func TestHTTPSubmissionPipelineMapsStopDetections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := testHTTPSubmissionPipeline(&pipelineRecordingExecutor{
+			pipeline, err := testHTTPSubmissionPipeline(&pipelineRecordingExecutor{
 				response: HTTPSubmissionResponse{StatusCode: http.StatusOK, Body: tt.body},
-			}, provider.Capabilities{SubmitHTTP: true}).Submit(context.Background(), testPipelineAnswerPlan())
+			}, provider.Capabilities{SubmitHTTP: true})
+			if err != nil {
+				t.Fatalf("NewHTTPSubmissionPipeline() returned error: %v", err)
+			}
+			result, err := pipeline.Submit(context.Background(), testPipelineAnswerPlan())
 			if err != nil {
 				t.Fatalf("Submit() returned error: %v", err)
 			}
@@ -88,19 +101,35 @@ func TestHTTPSubmissionPipelineMapsStopDetections(t *testing.T) {
 	}
 }
 
-func testHTTPSubmissionPipeline(executor HTTPSubmissionExecutor, capabilities provider.Capabilities) HTTPSubmissionPipeline {
-	schema, err := CompileHTTPAnswerSchema(testPipelineSurvey())
-	if err != nil {
-		panic(err)
+func TestHTTPSubmissionPipelineRejectsInvalidSurvey(t *testing.T) {
+	_, err := NewHTTPSubmissionPipeline(
+		pipelineProvider{capabilities: provider.Capabilities{SubmitHTTP: true}},
+		engine.ModeHTTP,
+		domain.SurveyDefinition{
+			Provider: domain.ProviderWJX,
+			Title:    "invalid",
+			URL:      "https://www.wjx.cn/vm/invalid.aspx",
+			Questions: []domain.QuestionDefinition{
+				{ID: "q1", Title: "One", Kind: domain.QuestionKindSingle},
+				{ID: "q1", Title: "Duplicate", Kind: domain.QuestionKindSingle},
+			},
+		},
+		&pipelineRecordingExecutor{},
+	)
+	if err == nil || !strings.Contains(err.Error(), "defined more than once") {
+		t.Fatalf("NewHTTPSubmissionPipeline() error = %v, want schema error", err)
 	}
-	return HTTPSubmissionPipeline{
-		Provider: pipelineProvider{
+}
+
+func testHTTPSubmissionPipeline(executor HTTPSubmissionExecutor, capabilities provider.Capabilities) (HTTPSubmissionPipeline, error) {
+	return NewHTTPSubmissionPipeline(
+		pipelineProvider{
 			capabilities: capabilities,
 		},
-		Mode:     engine.ModeHTTP,
-		Schema:   schema,
-		Executor: executor,
-	}
+		engine.ModeHTTP,
+		testPipelineSurvey(),
+		executor,
+	)
 }
 
 type pipelineProvider struct {
