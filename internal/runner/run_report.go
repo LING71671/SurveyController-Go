@@ -18,10 +18,21 @@ type RunPlanReport struct {
 	SuccessRate       float64 `json:"success_rate"`
 	DurationMS        int64   `json:"duration_ms,omitempty"`
 	ThroughputPerSec  float64 `json:"throughput_per_second,omitempty"`
+	Goroutines        int     `json:"goroutines,omitempty"`
+	HeapAllocBytes    uint64  `json:"heap_alloc_bytes,omitempty"`
+	HeapAllocDelta    int64   `json:"heap_alloc_delta_bytes,omitempty"`
+	TotalAllocDelta   uint64  `json:"total_alloc_delta_bytes,omitempty"`
 	StopRequested     bool    `json:"stop_requested"`
 	StopReason        string  `json:"stop_reason,omitempty"`
 	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
 	WorkerCount       int     `json:"worker_count"`
+}
+
+type RunResourceMetrics struct {
+	Goroutines      int
+	HeapAllocBytes  uint64
+	HeapAllocDelta  int64
+	TotalAllocDelta uint64
 }
 
 func NewTimedRunPlanReport(plan Plan, snapshot StateSnapshot, elapsed time.Duration) RunPlanReport {
@@ -32,6 +43,14 @@ func NewTimedRunPlanReport(plan Plan, snapshot StateSnapshot, elapsed time.Durat
 	report.DurationMS = elapsed.Milliseconds()
 	report.ThroughputPerSec = ratioPerSecond(report.Completed, elapsed)
 	return report
+}
+
+func (r RunPlanReport) WithResourceMetrics(metrics RunResourceMetrics) RunPlanReport {
+	r.Goroutines = metrics.Goroutines
+	r.HeapAllocBytes = metrics.HeapAllocBytes
+	r.HeapAllocDelta = metrics.HeapAllocDelta
+	r.TotalAllocDelta = metrics.TotalAllocDelta
+	return r
 }
 
 func NewRunPlanReport(plan Plan, snapshot StateSnapshot) RunPlanReport {
