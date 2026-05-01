@@ -11,6 +11,7 @@ import (
 
 type Task func(ctx context.Context, workerID int) error
 type SubmissionTask func(ctx context.Context, workerID int) (engine.SubmissionResult, error)
+type SubmissionTaskGenerator func(index int) (SubmissionTask, error)
 
 const DefaultMaxWorkerConcurrency = engine.LightWorkerConcurrencyBaseline
 
@@ -83,11 +84,25 @@ enqueue:
 }
 
 func (p *WorkerPool) RunSubmissions(ctx context.Context, tasks []SubmissionTask) StateSnapshot {
+	snapshot, _ := p.RunGeneratedSubmissions(ctx, len(tasks), func(index int) (SubmissionTask, error) {
+		return tasks[index], nil
+	})
+	return snapshot
+}
+
+func (p *WorkerPool) RunGeneratedSubmissions(ctx context.Context, taskCount int, next SubmissionTaskGenerator) (StateSnapshot, error) {
+	if taskCount < 0 {
+		return p.state.Snapshot(), fmt.Errorf("task count must not be negative")
+	}
+	if taskCount > 0 && next == nil {
+		return p.state.Snapshot(), fmt.Errorf("submission task generator is required")
+	}
+
 	p.emit(logging.NewEvent(logging.EventRunStarted, "run started"))
 	taskCh := make(chan SubmissionTask)
 	var wg sync.WaitGroup
 
-	for workerID := 1; workerID <= p.workerCount(len(tasks)); workerID++ {
+	for workerID := 1; workerID <= p.workerCount(taskCount); workerID++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -95,9 +110,15 @@ func (p *WorkerPool) RunSubmissions(ctx context.Context, tasks []SubmissionTask)
 		}(workerID)
 	}
 
+	var generateErr error
 enqueue:
-	for _, task := range tasks {
+	for index := 0; index < taskCount; index++ {
 		if p.state.ShouldStop() {
+			break
+		}
+		task, err := next(index)
+		if err != nil {
+			generateErr = err
 			break
 		}
 		select {
@@ -109,7 +130,7 @@ enqueue:
 	close(taskCh)
 	wg.Wait()
 
-	return p.finishRun()
+	return p.finishRun(), generateErr
 }
 
 func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task) {
