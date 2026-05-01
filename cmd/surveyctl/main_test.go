@@ -272,6 +272,34 @@ questions: []
 	}
 }
 
+func TestRunDryRunAppliesTargetConcurrencyOverrides(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions: []
+`)
+
+	code := run([]string{"run", "--dry-run", "--target", "7", "--concurrency", "3", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(dry-run overrides) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"target: 7", "concurrency: 3"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
 func TestRunMockRunPrintsSummary(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -301,6 +329,40 @@ questions:
 		t.Fatalf("run(mock) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
 	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "completed: 3", "completion_rate: 100.00%", "success_rate: 100.00%", "network: disabled"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunMockRunAppliesTargetConcurrencyOverrides(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--target", "4", "--concurrency", "2", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(mock overrides) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"target: 4", "concurrency: 2", "successes: 4", "workers: 2"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -343,6 +405,64 @@ questions:
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunRejectsInvalidTargetOverride(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--mock", "--target", "0"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(invalid target override) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "--target requires a positive integer") {
+		t.Fatalf("stderr = %q, want target override error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunRejectsInvalidConcurrencyOverride(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--mock", "--concurrency", "nope"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(invalid concurrency override) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "--concurrency requires a positive integer") {
+		t.Fatalf("stderr = %q, want concurrency override error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunRejectsConcurrencyOverrideAboveModeLimit(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: browser
+questions: []
+`)
+
+	code := run([]string{"run", "--dry-run", "--concurrency", "17", path}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(too high concurrency override) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stderr.String(), "browser mode concurrency") {
+		t.Fatalf("stderr = %q, want browser concurrency limit", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 
