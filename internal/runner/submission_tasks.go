@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	"github.com/LING71671/SurveyController-go/internal/answerplan"
 	"github.com/LING71671/SurveyController-go/internal/engine"
@@ -29,4 +30,15 @@ func SubmissionTasksFromAnswerPlans(submitter AnswerPlanSubmitter, plans []answe
 		})
 	}
 	return tasks, nil
+}
+
+func SubmissionTasksFromPlan(rng *rand.Rand, plan Plan, submitter AnswerPlanSubmitter) ([]SubmissionTask, error) {
+	if err := New().ValidatePlan(plan); err != nil {
+		return nil, err
+	}
+	answerPlans, err := BuildAnswerPlans(rng, plan.Questions, plan.Target)
+	if err != nil {
+		return nil, err
+	}
+	return SubmissionTasksFromAnswerPlans(submitter, answerPlans)
 }
