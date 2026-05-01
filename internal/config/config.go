@@ -189,8 +189,12 @@ func (c RuntimeConfig) Validate() error {
 	if c.FailureThreshold < 0 {
 		return fmt.Errorf("run.failure_threshold must not be negative")
 	}
-	if _, err := engine.ParseMode(c.Mode.String()); err != nil {
+	mode, err := engine.ParseMode(c.Mode.String())
+	if err != nil {
 		return fmt.Errorf("run.mode: %w", err)
+	}
+	if err := engine.ValidateConcurrency(mode, c.Concurrency); err != nil {
+		return fmt.Errorf("run.concurrency: %w", err)
 	}
 	if err := c.SubmitInterval.Validate("run.submit_interval"); err != nil {
 		return err

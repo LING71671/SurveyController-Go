@@ -188,6 +188,15 @@ func TestRuntimeConfigValidationRejectsInvalidValues(t *testing.T) {
 			want: "run.mode",
 		},
 		{
+			name: "browser concurrency profile",
+			cfg: RuntimeConfig{
+				Target:      1,
+				Concurrency: engine.BrowserWorkerConcurrencyLimit + 1,
+				Mode:        engine.ModeBrowser,
+			},
+			want: "run.concurrency",
+		},
+		{
 			name: "failure threshold",
 			cfg: RuntimeConfig{
 				Target:           1,
@@ -214,6 +223,21 @@ func TestRuntimeConfigValidationRejectsInvalidValues(t *testing.T) {
 			err := tt.cfg.Validate()
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("Validate() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestRuntimeConfigValidationAllowsLightConcurrencyProfiles(t *testing.T) {
+	for _, mode := range []engine.Mode{engine.ModeHTTP, engine.ModeHybrid} {
+		t.Run(mode.String(), func(t *testing.T) {
+			cfg := RuntimeConfig{
+				Target:      1,
+				Concurrency: engine.LightWorkerConcurrencyBaseline,
+				Mode:        mode,
+			}
+			if err := cfg.Validate(); err != nil {
+				t.Fatalf("Validate() returned error: %v", err)
 			}
 		})
 	}

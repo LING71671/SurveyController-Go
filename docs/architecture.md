@@ -131,6 +131,16 @@ type ProviderRunner interface {
 - `hybrid` 也必须由 provider 显式声明支持。
 - provider 必须给出失败原因，例如“不支持 HTTP 提交”“需要登录”“命中验证”。
 
+## 执行模式资源 Profile
+
+高并发目标不能依赖浏览器堆数量。Go 版的核心路线是 HTTP-first：
+
+- `http`：轻量高并发主路径，当前 runner 已验证 1000 worker 调度基线，后续通过 benchmark 和资源池继续上调。
+- `hybrid`：优先 HTTP；只在 provider 明确需要时使用小规模 browser 兜底。
+- `browser`：兼容性路径，不作为高并发主线，默认按小池限制。
+
+这些 profile 是 core 层资源边界，不是 UI 建议值。未来轻量 GUI 或 TUI 可以做更漂亮的实时动画、worker 流、成功率面板，但不能把动画和桌面依赖带入 runner/provider/answer 热路径。
+
 ## Runner 设计
 
 Runner 只处理任务生命周期：
