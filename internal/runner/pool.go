@@ -135,23 +135,27 @@ func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task
 			}
 			if err := task(ctx, workerID); err != nil {
 				p.state.RecordFailureWithCode(workerID, err.Error(), errorCode(err))
-				event := logging.RunEvent{
-					Type:     logging.EventSubmissionFailure,
-					Level:    logging.LevelError,
-					WorkerID: workerID,
-					Message:  err.Error(),
+				if p.eventsEnabled() {
+					event := logging.RunEvent{
+						Type:     logging.EventSubmissionFailure,
+						Level:    logging.LevelError,
+						WorkerID: workerID,
+						Message:  err.Error(),
+					}
+					addErrorFields(&event, err)
+					p.emit(event)
 				}
-				addErrorFields(&event, err)
-				p.emit(event)
 				continue
 			}
 			p.state.RecordSuccess(workerID)
-			p.emit(logging.RunEvent{
-				Type:     logging.EventSubmissionSuccess,
-				Level:    logging.LevelInfo,
-				WorkerID: workerID,
-				Message:  "submission succeeded",
-			})
+			if p.eventsEnabled() {
+				p.emit(logging.RunEvent{
+					Type:     logging.EventSubmissionSuccess,
+					Level:    logging.LevelInfo,
+					WorkerID: workerID,
+					Message:  "submission succeeded",
+				})
+			}
 		}
 	}
 }
@@ -171,18 +175,22 @@ func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <
 			result, err := task(ctx, workerID)
 			if err != nil {
 				p.state.RecordFailureWithCode(workerID, err.Error(), errorCode(err))
-				event := logging.RunEvent{
-					Type:     logging.EventSubmissionFailure,
-					Level:    logging.LevelError,
-					WorkerID: workerID,
-					Message:  err.Error(),
+				if p.eventsEnabled() {
+					event := logging.RunEvent{
+						Type:     logging.EventSubmissionFailure,
+						Level:    logging.LevelError,
+						WorkerID: workerID,
+						Message:  err.Error(),
+					}
+					addErrorFields(&event, err)
+					p.emit(event)
 				}
-				addErrorFields(&event, err)
-				p.emit(event)
 				continue
 			}
 			p.state.RecordSubmissionResult(workerID, result)
-			p.emit(EventForSubmissionResult(workerID, result))
+			if p.eventsEnabled() {
+				p.emit(EventForSubmissionResult(workerID, result))
+			}
 		}
 	}
 }
@@ -220,4 +228,8 @@ func (p *WorkerPool) emit(event logging.RunEvent) {
 	case p.options.Events <- event:
 	default:
 	}
+}
+
+func (p *WorkerPool) eventsEnabled() bool {
+	return p.options.Events != nil
 }
