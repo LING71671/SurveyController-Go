@@ -33,7 +33,7 @@ Usage:
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
-  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -57,7 +57,7 @@ const doctorUsage = `Usage:
 
 const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
-  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
 `
 
 const (
@@ -254,6 +254,7 @@ func runRun(args []string, stdout io.Writer) error {
 	jsonOutput := false
 	eventFormat := logging.Format("")
 	overrides := runPlanOverrides{}
+	mockFailEvery := 0
 	seed := int64(1)
 	path := "survey.yaml"
 	pathSet := false
@@ -316,6 +317,17 @@ func runRun(args []string, stdout io.Writer) error {
 			}
 			seed = parsed
 			i = next
+		case "--mock-fail-every":
+			value, next, err := readRunFlagValue(args, i, "--mock-fail-every")
+			if err != nil {
+				return err
+			}
+			failEvery, err := parsePositiveRunInt(value, "--mock-fail-every")
+			if err != nil {
+				return err
+			}
+			mockFailEvery = failEvery
+			i = next
 		default:
 			if pathSet {
 				return usageError("run accepts at most one path", runUsage)
@@ -336,6 +348,9 @@ func runRun(args []string, stdout io.Writer) error {
 	if jsonOutput && eventFormat != "" {
 		return usageError("run --events cannot be combined with --json summary output", runUsage)
 	}
+	if dryRun && mockFailEvery > 0 {
+		return usageError("run --mock-fail-every requires --mock", runUsage)
+	}
 
 	plan, err := compileRunPlanFromFile(path, overrides)
 	if err != nil {
@@ -354,7 +369,7 @@ func runRun(args []string, stdout io.Writer) error {
 	}
 	options := runner.RunPlanOptions{
 		RNG:       rand.New(rand.NewSource(seed)),
-		Submitter: runner.MockAnswerPlanSubmitter{},
+		Submitter: mockSubmitter(mockFailEvery),
 	}
 	var finishEvents func() (int, error)
 	if eventFormat != "" {
@@ -378,6 +393,13 @@ func runRun(args []string, stdout io.Writer) error {
 		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
 	}
 	return printMockRunSummary(stdout, path, plan, snapshot, seed, elapsed, runtimeMetrics(beforeRuntime, afterRuntime), jsonOutput)
+}
+
+func mockSubmitter(failEvery int) runner.AnswerPlanSubmitter {
+	if failEvery > 0 {
+		return &runner.FailureInjectingMockSubmitter{FailEvery: failEvery}
+	}
+	return runner.MockAnswerPlanSubmitter{}
 }
 
 type runPlanOverrides struct {
@@ -576,6 +598,7 @@ type mockRunSummary struct {
 	HeapAllocDelta    int64   `json:"heap_alloc_delta_bytes"`
 	TotalAllocDelta   uint64  `json:"total_alloc_delta_bytes"`
 	StopRequested     bool    `json:"stop_requested"`
+	FailureThreshold  bool    `json:"failure_threshold_reached"`
 	StopReason        string  `json:"stop_reason,omitempty"`
 	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
 	WorkerCount       int     `json:"worker_count"`
@@ -642,6 +665,7 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 		HeapAllocDelta:    report.HeapAllocDelta,
 		TotalAllocDelta:   report.TotalAllocDelta,
 		StopRequested:     report.StopRequested,
+		FailureThreshold:  report.FailureThreshold,
 		StopReason:        report.StopReason,
 		StopFailureReason: report.StopFailureReason,
 		WorkerCount:       report.WorkerCount,
@@ -671,6 +695,7 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 	fmt.Fprintf(stdout, "  heap_alloc_delta_bytes: %d\n", summary.HeapAllocDelta)
 	fmt.Fprintf(stdout, "  total_alloc_delta_bytes: %d\n", summary.TotalAllocDelta)
 	fmt.Fprintf(stdout, "  stop_requested: %t\n", summary.StopRequested)
+	fmt.Fprintf(stdout, "  failure_threshold_reached: %t\n", summary.FailureThreshold)
 	fmt.Fprintf(stdout, "  workers: %d\n", summary.WorkerCount)
 	fmt.Fprintln(stdout, "  network: disabled (mock)")
 	return nil

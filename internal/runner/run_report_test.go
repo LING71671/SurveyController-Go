@@ -16,6 +16,7 @@ func TestNewRunPlanReportSummarizesSnapshot(t *testing.T) {
 		Concurrency: 3,
 	}
 	snapshot := StateSnapshot{
+		FailureThreshold:  1,
 		Successes:         3,
 		Failures:          1,
 		StopRequested:     true,
@@ -44,6 +45,9 @@ func TestNewRunPlanReportSummarizesSnapshot(t *testing.T) {
 	}
 	if !report.StopRequested || report.StopReason != "failure_threshold" || report.StopFailureReason != "validation required" {
 		t.Fatalf("report stop = %+v, want stop details copied", report)
+	}
+	if !report.FailureThreshold {
+		t.Fatalf("FailureThreshold = false, want true")
 	}
 	if !report.HasFailures() {
 		t.Fatalf("HasFailures() = false, want true")

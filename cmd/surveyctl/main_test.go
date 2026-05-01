@@ -328,7 +328,7 @@ questions:
 	if code != exitOK {
 		t.Fatalf("run(mock) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "completed: 3", "completion_rate: 100.00%", "success_rate: 100.00%", "duration_ms:", "throughput_per_second:", "goroutines:", "heap_alloc_bytes:", "total_alloc_delta_bytes:", "network: disabled"} {
+	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "completed: 3", "completion_rate: 100.00%", "success_rate: 100.00%", "duration_ms:", "throughput_per_second:", "goroutines:", "heap_alloc_bytes:", "total_alloc_delta_bytes:", "failure_threshold_reached: false", "network: disabled"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -409,6 +409,9 @@ questions:
 	if _, ok := summary["throughput_per_second"]; !ok {
 		t.Fatalf("summary = %+v, want throughput_per_second", summary)
 	}
+	if summary["failure_threshold_reached"] != false {
+		t.Fatalf("summary = %+v, want failure threshold false", summary)
+	}
 	for _, key := range []string{"goroutines", "heap_alloc_bytes", "heap_alloc_delta_bytes", "total_alloc_delta_bytes"} {
 		if _, ok := summary[key]; !ok {
 			t.Fatalf("summary = %+v, want %s", summary, key)
@@ -471,6 +474,74 @@ questions: []
 	}
 	if !strings.Contains(stderr.String(), "browser mode concurrency") {
 		t.Fatalf("stderr = %q, want browser concurrency limit", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunMockRunFailureInjection(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 5
+  concurrency: 1
+  mode: http
+  failure_threshold: 1
+  fail_stop_enabled: true
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--mock-fail-every", "2", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(mock fail every) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"successes: 1", "failures: 1", "failure_threshold_reached: true"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunMockRejectsInvalidFailEvery(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--mock", "--mock-fail-every", "0"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(invalid fail every) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "--mock-fail-every requires a positive integer") {
+		t.Fatalf("stderr = %q, want fail every error", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunDryRunRejectsFailEvery(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--dry-run", "--mock-fail-every", "2"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(dry-run fail every) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "requires --mock") {
+		t.Fatalf("stderr = %q, want mock-only error", stderr.String())
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
