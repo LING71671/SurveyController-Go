@@ -48,6 +48,9 @@ func TestRecordSubmissionResultCountsFailure(t *testing.T) {
 	if snapshot.LastFailureCode != apperr.CodeSubmitFailed || snapshot.Workers[2].ErrorCode != apperr.CodeSubmitFailed {
 		t.Fatalf("failure codes = %q/%q, want %q", snapshot.LastFailureCode, snapshot.Workers[2].ErrorCode, apperr.CodeSubmitFailed)
 	}
+	if snapshot.LastFailureReason != string(apperr.CodeSubmitFailed) || snapshot.Workers[2].FailureReason != string(apperr.CodeSubmitFailed) {
+		t.Fatalf("failure reasons = %q/%q, want %q", snapshot.LastFailureReason, snapshot.Workers[2].FailureReason, apperr.CodeSubmitFailed)
+	}
 	if snapshot.StopRequested {
 		t.Fatalf("StopRequested = true, want false")
 	}
@@ -70,6 +73,9 @@ func TestRecordSubmissionResultRequestsStop(t *testing.T) {
 	}
 	if snapshot.LastFailureCode != apperr.CodeVerificationNeeded || snapshot.StopCode != apperr.CodeVerificationNeeded {
 		t.Fatalf("snapshot codes = %q/%q, want %q", snapshot.LastFailureCode, snapshot.StopCode, apperr.CodeVerificationNeeded)
+	}
+	if snapshot.LastFailureReason != string(apperr.CodeVerificationNeeded) || snapshot.StopFailureReason != string(apperr.CodeVerificationNeeded) {
+		t.Fatalf("snapshot failure reasons = %q/%q, want %q", snapshot.LastFailureReason, snapshot.StopFailureReason, apperr.CodeVerificationNeeded)
 	}
 	if !state.ShouldStop() {
 		t.Fatalf("ShouldStop() = false, want true")

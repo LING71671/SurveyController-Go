@@ -20,37 +20,42 @@ type StateOptions struct {
 }
 
 type RunState struct {
-	mu            sync.Mutex
-	target        int
-	threshold     int
-	success       int
-	failure       int
-	failureCode   apperr.Code
-	stopRequested bool
-	stopReason    string
-	stopCode      apperr.Code
-	workers       map[int]WorkerProgress
+	mu                sync.Mutex
+	target            int
+	threshold         int
+	success           int
+	failure           int
+	failureCode       apperr.Code
+	failureReason     string
+	stopRequested     bool
+	stopReason        string
+	stopCode          apperr.Code
+	stopFailureReason string
+	workers           map[int]WorkerProgress
 }
 
 type WorkerProgress struct {
-	ID        int
-	Status    WorkerStatus
-	Successes int
-	Failures  int
-	Message   string
-	ErrorCode apperr.Code
+	ID            int
+	Status        WorkerStatus
+	Successes     int
+	Failures      int
+	Message       string
+	ErrorCode     apperr.Code
+	FailureReason string
 }
 
 type StateSnapshot struct {
-	Target           int
-	FailureThreshold int
-	Successes        int
-	Failures         int
-	LastFailureCode  apperr.Code
-	StopRequested    bool
-	StopReason       string
-	StopCode         apperr.Code
-	Workers          map[int]WorkerProgress
+	Target            int
+	FailureThreshold  int
+	Successes         int
+	Failures          int
+	LastFailureCode   apperr.Code
+	LastFailureReason string
+	StopRequested     bool
+	StopReason        string
+	StopCode          apperr.Code
+	StopFailureReason string
+	Workers           map[int]WorkerProgress
 }
 
 func NewRunState(options StateOptions) *RunState {
@@ -82,11 +87,13 @@ func (s *RunState) RecordFailureWithCode(workerID int, message string, code appe
 
 	s.failure++
 	s.failureCode = code
+	s.failureReason = failureReasonFromCode(code)
 	progress := s.worker(workerID)
 	progress.Failures++
 	progress.Status = WorkerStatusRunning
 	progress.Message = message
 	progress.ErrorCode = code
+	progress.FailureReason = failureReasonFromCode(code)
 	s.workers[workerID] = progress
 }
 
@@ -111,6 +118,7 @@ func (s *RunState) RequestStopWithCode(reason string, code apperr.Code) {
 	s.stopRequested = true
 	s.stopReason = reason
 	s.stopCode = code
+	s.stopFailureReason = failureReasonFromCode(code)
 }
 
 func (s *RunState) Snapshot() StateSnapshot {
@@ -122,15 +130,17 @@ func (s *RunState) Snapshot() StateSnapshot {
 		workers[id] = progress
 	}
 	return StateSnapshot{
-		Target:           s.target,
-		FailureThreshold: s.threshold,
-		Successes:        s.success,
-		Failures:         s.failure,
-		LastFailureCode:  s.failureCode,
-		StopRequested:    s.stopRequested,
-		StopReason:       s.stopReason,
-		StopCode:         s.stopCode,
-		Workers:          workers,
+		Target:            s.target,
+		FailureThreshold:  s.threshold,
+		Successes:         s.success,
+		Failures:          s.failure,
+		LastFailureCode:   s.failureCode,
+		LastFailureReason: s.failureReason,
+		StopRequested:     s.stopRequested,
+		StopReason:        s.stopReason,
+		StopCode:          s.stopCode,
+		StopFailureReason: s.stopFailureReason,
+		Workers:           workers,
 	}
 }
 
@@ -156,4 +166,11 @@ func (s *RunState) worker(workerID int) WorkerProgress {
 		}
 	}
 	return progress
+}
+
+func failureReasonFromCode(code apperr.Code) string {
+	if code == "" {
+		return ""
+	}
+	return string(code)
 }
