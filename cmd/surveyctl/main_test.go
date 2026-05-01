@@ -300,7 +300,7 @@ questions:
 	if code != exitOK {
 		t.Fatalf("run(mock) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "network: disabled"} {
+	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "completed: 3", "completion_rate: 100.00%", "success_rate: 100.00%", "network: disabled"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -338,7 +338,7 @@ questions:
 	if err := json.Unmarshal(stdout.Bytes(), &summary); err != nil {
 		t.Fatalf("json output decode failed: %v; output=%q", err, stdout.String())
 	}
-	if summary["successes"] != float64(2) || summary["failures"] != float64(0) || summary["seed"] != float64(1) {
+	if summary["successes"] != float64(2) || summary["failures"] != float64(0) || summary["completed"] != float64(2) || summary["completion_rate"] != float64(1) || summary["success_rate"] != float64(1) || summary["seed"] != float64(1) {
 		t.Fatalf("summary = %+v, want mock success summary", summary)
 	}
 	if stderr.Len() != 0 {
