@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/LING71671/SurveyController-go/internal/config"
@@ -28,6 +30,7 @@ Usage:
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json]
+  surveyctl run --mock [path] [--json] [--seed <n>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -51,6 +54,7 @@ const doctorUsage = `Usage:
 
 const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json]
+  surveyctl run --mock [path] [--json] [--seed <n>]
 `
 
 const (
@@ -240,13 +244,16 @@ func readFlagValue(args []string, index int, flag string) (string, int, error) {
 
 func runRun(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return usageError("run requires --dry-run until execution is implemented", runUsage)
+		return usageError("run requires --dry-run or --mock", runUsage)
 	}
 	dryRun := false
+	mockRun := false
 	jsonOutput := false
+	seed := int64(1)
 	path := "survey.yaml"
 	pathSet := false
-	for _, arg := range args {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		normalized := strings.ToLower(strings.TrimSpace(arg))
 		switch normalized {
 		case "":
@@ -256,8 +263,21 @@ func runRun(args []string, stdout io.Writer) error {
 			return nil
 		case "--dry-run":
 			dryRun = true
+		case "--mock":
+			mockRun = true
 		case "--json":
 			jsonOutput = true
+		case "--seed":
+			value, next, err := readRunFlagValue(args, i, "--seed")
+			if err != nil {
+				return err
+			}
+			parsed, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return usageError("--seed requires an integer", runUsage)
+			}
+			seed = parsed
+			i = next
 		default:
 			if pathSet {
 				return usageError("run accepts at most one path", runUsage)
@@ -266,29 +286,59 @@ func runRun(args []string, stdout io.Writer) error {
 			pathSet = true
 		}
 	}
-	if !dryRun {
-		return usageError("run requires --dry-run until execution is implemented", runUsage)
+	if dryRun && mockRun {
+		return usageError("run accepts only one of --dry-run or --mock", runUsage)
+	}
+	if !dryRun && !mockRun {
+		return usageError("run requires --dry-run or --mock", runUsage)
 	}
 
+	plan, err := compileRunPlanFromFile(path)
+	if err != nil {
+		action := "dry-run"
+		if mockRun {
+			action = "mock"
+		}
+		return commandError(exitFailure, fmt.Sprintf("run %s failed: %v", action, err), "")
+	}
+
+	if dryRun {
+		if err := printDryRunPlan(stdout, path, plan, jsonOutput); err != nil {
+			return err
+		}
+		return nil
+	}
+	snapshot, err := runner.RunPlanSubmissions(contextBackground(), plan, runner.RunPlanOptions{
+		RNG:       rand.New(rand.NewSource(seed)),
+		Submitter: runner.MockAnswerPlanSubmitter{},
+	})
+	if err != nil {
+		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
+	}
+	return printMockRunSummary(stdout, path, plan, snapshot, seed, jsonOutput)
+}
+
+func compileRunPlanFromFile(path string) (runner.Plan, error) {
 	cfg, err := config.LoadRunConfig(path)
 	if err != nil {
-		return commandError(exitFailure, fmt.Sprintf("run dry-run failed: %v", err), "")
+		return runner.Plan{}, err
 	}
 	if strings.TrimSpace(cfg.Survey.Provider) == "" {
 		providerID, ok := builtin.DetectProvider(cfg.Survey.URL)
 		if !ok {
-			return commandError(exitFailure, fmt.Sprintf("run dry-run failed: provider is required or survey.url must match a built-in provider: %s", cfg.Survey.URL), "")
+			return runner.Plan{}, fmt.Errorf("provider is required or survey.url must match a built-in provider: %s", cfg.Survey.URL)
 		}
 		cfg.Survey.Provider = providerID.String()
 	}
-	plan, err := runner.CompilePlan(cfg)
-	if err != nil {
-		return commandError(exitFailure, fmt.Sprintf("run dry-run failed: %v", err), "")
+	return runner.CompilePlan(cfg)
+}
+
+func readRunFlagValue(args []string, index int, flag string) (string, int, error) {
+	next := index + 1
+	if next >= len(args) || strings.TrimSpace(args[next]) == "" {
+		return "", index, usageError(fmt.Sprintf("%s requires a value", flag), runUsage)
 	}
-	if err := printDryRunPlan(stdout, path, plan, jsonOutput); err != nil {
-		return err
-	}
-	return nil
+	return args[next], next, nil
 }
 
 func runDoctor(args []string, stdout io.Writer) error {
@@ -333,6 +383,22 @@ type dryRunPlanSummary struct {
 	RandomUA         bool   `json:"random_ua_enabled"`
 }
 
+type mockRunSummary struct {
+	Path              string `json:"path"`
+	Provider          string `json:"provider"`
+	URL               string `json:"url"`
+	Mode              string `json:"mode"`
+	Target            int    `json:"target"`
+	Concurrency       int    `json:"concurrency"`
+	Seed              int64  `json:"seed"`
+	Successes         int    `json:"successes"`
+	Failures          int    `json:"failures"`
+	StopRequested     bool   `json:"stop_requested"`
+	StopReason        string `json:"stop_reason,omitempty"`
+	StopFailureReason string `json:"stop_failure_reason,omitempty"`
+	WorkerCount       int    `json:"worker_count"`
+}
+
 func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput bool) error {
 	summary := dryRunPlanSummary{
 		Path:             path,
@@ -369,6 +435,43 @@ func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput
 	fmt.Fprintf(stdout, "  reverse_fill_enabled: %t\n", summary.ReverseFill)
 	fmt.Fprintf(stdout, "  random_ua_enabled: %t\n", summary.RandomUA)
 	fmt.Fprintln(stdout, "  submissions: 0 (dry run)")
+	return nil
+}
+
+func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, jsonOutput bool) error {
+	summary := mockRunSummary{
+		Path:              path,
+		Provider:          plan.Provider,
+		URL:               plan.URL,
+		Mode:              plan.Mode.String(),
+		Target:            plan.Target,
+		Concurrency:       plan.Concurrency,
+		Seed:              seed,
+		Successes:         snapshot.Successes,
+		Failures:          snapshot.Failures,
+		StopRequested:     snapshot.StopRequested,
+		StopReason:        snapshot.StopReason,
+		StopFailureReason: snapshot.StopFailureReason,
+		WorkerCount:       len(snapshot.Workers),
+	}
+	if jsonOutput {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetEscapeHTML(false)
+		return encoder.Encode(summary)
+	}
+	fmt.Fprintln(stdout, "mock run:")
+	fmt.Fprintf(stdout, "  path: %s\n", summary.Path)
+	fmt.Fprintf(stdout, "  provider: %s\n", summary.Provider)
+	fmt.Fprintf(stdout, "  url: %s\n", summary.URL)
+	fmt.Fprintf(stdout, "  mode: %s\n", summary.Mode)
+	fmt.Fprintf(stdout, "  target: %d\n", summary.Target)
+	fmt.Fprintf(stdout, "  concurrency: %d\n", summary.Concurrency)
+	fmt.Fprintf(stdout, "  seed: %d\n", summary.Seed)
+	fmt.Fprintf(stdout, "  successes: %d\n", summary.Successes)
+	fmt.Fprintf(stdout, "  failures: %d\n", summary.Failures)
+	fmt.Fprintf(stdout, "  stop_requested: %t\n", summary.StopRequested)
+	fmt.Fprintf(stdout, "  workers: %d\n", summary.WorkerCount)
+	fmt.Fprintln(stdout, "  network: disabled (mock)")
 	return nil
 }
 
