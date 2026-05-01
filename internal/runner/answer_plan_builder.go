@@ -16,11 +16,10 @@ type AnswerPlanBuilder struct {
 }
 
 type compiledQuestionPlan struct {
-	id      string
-	kind    domain.QuestionKind
-	picker  answer.WeightedPicker
-	weights []answer.OptionWeight
-	rule    answer.SelectionRule
+	id       string
+	kind     domain.QuestionKind
+	picker   answer.WeightedPicker
+	selector answer.SelectionPicker
 }
 
 func BuildAnswerPlan(rng *rand.Rand, questions []QuestionPlan) (answerplan.Plan, error) {
@@ -116,12 +115,12 @@ func compileQuestionPlan(question QuestionPlan) (compiledQuestionPlan, error) {
 		}
 		return compiledQuestionPlan{id: questionID, kind: kind, picker: picker}, nil
 	case domain.QuestionKindMultiple:
-		weights := append([]answer.OptionWeight(nil), question.Weights...)
 		rule := selectionRuleFromOptions(question.Options)
-		if _, err := answer.PickMany(rand.New(rand.NewSource(1)), weights, rule); err != nil {
+		selector, err := answer.NewSelectionPicker(question.Weights, rule)
+		if err != nil {
 			return compiledQuestionPlan{}, fmt.Errorf("question %q weights: %w", questionID, err)
 		}
-		return compiledQuestionPlan{id: questionID, kind: kind, weights: weights, rule: rule}, nil
+		return compiledQuestionPlan{id: questionID, kind: kind, selector: selector}, nil
 	default:
 		return compiledQuestionPlan{}, fmt.Errorf("question %q kind %q is not supported for answer plan builder", questionID, kind)
 	}
@@ -136,7 +135,7 @@ func (q compiledQuestionPlan) buildAnswer(rng *rand.Rand) (answerplan.QuestionAn
 		}
 		return answerplan.QuestionAnswer{QuestionID: q.id, OptionIDs: []string{optionID}}, nil
 	case domain.QuestionKindMultiple:
-		selected, err := answer.PickMany(rng, q.weights, q.rule)
+		selected, err := q.selector.Pick(rng)
 		if err != nil {
 			return answerplan.QuestionAnswer{}, fmt.Errorf("question %q pick many: %w", q.id, err)
 		}
