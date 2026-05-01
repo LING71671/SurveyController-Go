@@ -25,18 +25,14 @@ func (s *RunState) RecordSubmissionResult(workerID int, result engine.Submission
 }
 
 func EventForSubmissionResult(workerID int, result engine.SubmissionResult) logging.RunEvent {
-	event := logging.RunEvent{
-		Type:     logging.EventWorkerProgress,
-		Level:    logging.LevelInfo,
-		WorkerID: workerID,
-		Message:  result.Message,
-		Fields: map[string]any{
-			"state":               string(result.State),
-			"terminal":            result.Terminal,
-			"completion_detected": result.CompletionDetected,
-			"should_stop":         result.ShouldStop,
-			"should_rotate_proxy": result.ShouldRotateProxy,
-		},
+	event := logging.NewEvent(logging.EventWorkerProgress, result.Message)
+	event.WorkerID = workerID
+	event.Fields = map[string]any{
+		"state":               string(result.State),
+		"terminal":            result.Terminal,
+		"completion_detected": result.CompletionDetected,
+		"should_stop":         result.ShouldStop,
+		"should_rotate_proxy": result.ShouldRotateProxy,
 	}
 	if code, ok := apperr.CodeOf(result.Error); ok {
 		event.Fields["error_code"] = string(code)
