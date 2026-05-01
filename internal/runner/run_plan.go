@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 
 	"github.com/LING71671/SurveyController-go/internal/answerplan"
 	"github.com/LING71671/SurveyController-go/internal/engine"
@@ -75,6 +76,45 @@ func (MockAnswerPlanSubmitter) Submit(ctx context.Context, plan answerplan.Plan)
 			Message:  "answer plan is empty",
 			Terminal: true,
 			Error:    fmt.Errorf("answer plan is empty"),
+		}, nil
+	}
+	return engine.SubmissionResult{
+		State:              provider.SubmissionStateSuccess,
+		Message:            "mock submission succeeded",
+		Success:            true,
+		Terminal:           true,
+		CompletionDetected: true,
+	}, nil
+}
+
+type FailureInjectingMockSubmitter struct {
+	FailEvery int
+	counter   atomic.Uint64
+}
+
+func (s *FailureInjectingMockSubmitter) Submit(ctx context.Context, plan answerplan.Plan) (engine.SubmissionResult, error) {
+	if s == nil {
+		return engine.SubmissionResult{}, fmt.Errorf("failure injecting mock submitter is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return engine.SubmissionResult{}, err
+	}
+	if plan.Empty() {
+		return engine.SubmissionResult{
+			State:    provider.SubmissionStateFailure,
+			Message:  "answer plan is empty",
+			Terminal: true,
+			Error:    fmt.Errorf("answer plan is empty"),
+		}, nil
+	}
+
+	attempt := s.counter.Add(1)
+	if s.FailEvery > 0 && attempt%uint64(s.FailEvery) == 0 {
+		return engine.SubmissionResult{
+			State:    provider.SubmissionStateFailure,
+			Message:  fmt.Sprintf("mock submission failed at attempt %d", attempt),
+			Terminal: true,
+			Error:    fmt.Errorf("mock submission failed"),
 		}, nil
 	}
 	return engine.SubmissionResult{

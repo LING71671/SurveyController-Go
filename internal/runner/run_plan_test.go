@@ -49,6 +49,48 @@ func TestRunPlanSubmissionsHonorsFailStopFlag(t *testing.T) {
 	}
 }
 
+func TestFailureInjectingMockSubmitter(t *testing.T) {
+	submitter := &FailureInjectingMockSubmitter{FailEvery: 2}
+	plan := answerplan.Plan{Answers: []answerplan.QuestionAnswer{{QuestionID: "q1", OptionIDs: []string{"a"}}}}
+
+	first, err := submitter.Submit(context.Background(), plan)
+	if err != nil {
+		t.Fatalf("first Submit() returned error: %v", err)
+	}
+	if !first.Success || first.State != provider.SubmissionStateSuccess {
+		t.Fatalf("first result = %+v, want success", first)
+	}
+
+	second, err := submitter.Submit(context.Background(), plan)
+	if err != nil {
+		t.Fatalf("second Submit() returned error: %v", err)
+	}
+	if second.Success || second.State != provider.SubmissionStateFailure || second.Error == nil {
+		t.Fatalf("second result = %+v, want injected failure", second)
+	}
+}
+
+func TestRunPlanSubmissionsWithFailureInjectingMockSubmitter(t *testing.T) {
+	plan := runnableTestPlan(5)
+	plan.Concurrency = 1
+	plan.FailureThreshold = 1
+	plan.FailStopEnabled = true
+
+	snapshot, err := RunPlanSubmissions(context.Background(), plan, RunPlanOptions{
+		RNG:       rand.New(rand.NewSource(1)),
+		Submitter: &FailureInjectingMockSubmitter{FailEvery: 2},
+	})
+	if err != nil {
+		t.Fatalf("RunPlanSubmissions() returned error: %v", err)
+	}
+	if snapshot.Successes != 1 || snapshot.Failures != 1 {
+		t.Fatalf("snapshot counts = %d/%d, want 1/1", snapshot.Successes, snapshot.Failures)
+	}
+	if !snapshot.FailureThresholdReached() {
+		t.Fatalf("FailureThresholdReached() = false, want true")
+	}
+}
+
 func TestRunPlanSubmissionsRejectsInvalidInput(t *testing.T) {
 	validPlan := runnableTestPlan(1)
 	tests := []struct {

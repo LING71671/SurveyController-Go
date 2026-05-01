@@ -48,10 +48,11 @@ func NewWorkerPool(options PoolOptions) (*WorkerPool, error) {
 
 func (p *WorkerPool) Run(ctx context.Context, tasks []Task) StateSnapshot {
 	p.emit(logging.NewEvent(logging.EventRunStarted, "run started"))
-	taskCh := make(chan Task)
+	workerCount := p.workerCount(len(tasks))
+	taskCh := make(chan Task, workerCount)
 	var wg sync.WaitGroup
 
-	for workerID := 1; workerID <= p.workerCount(len(tasks)); workerID++ {
+	for workerID := 1; workerID <= workerCount; workerID++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -99,14 +100,22 @@ func (p *WorkerPool) RunGeneratedSubmissions(ctx context.Context, taskCount int,
 	}
 
 	p.emit(logging.NewEvent(logging.EventRunStarted, "run started"))
-	taskCh := make(chan SubmissionTask)
+	workerCount := p.workerCount(taskCount)
+	taskCh := make(chan SubmissionTask, workerCount)
+	stopCh := make(chan struct{})
+	var stopOnce sync.Once
+	signalStop := func() {
+		stopOnce.Do(func() {
+			close(stopCh)
+		})
+	}
 	var wg sync.WaitGroup
 
-	for workerID := 1; workerID <= p.workerCount(taskCount); workerID++ {
+	for workerID := 1; workerID <= workerCount; workerID++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			p.submissionWorker(ctx, id, taskCh)
+			p.submissionWorker(ctx, id, taskCh, signalStop)
 		}(workerID)
 	}
 
@@ -123,6 +132,8 @@ enqueue:
 		}
 		select {
 		case <-ctx.Done():
+			break enqueue
+		case <-stopCh:
 			break enqueue
 		case taskCh <- task:
 		}
@@ -169,7 +180,7 @@ func (p *WorkerPool) worker(ctx context.Context, workerID int, tasks <-chan Task
 	}
 }
 
-func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <-chan SubmissionTask) {
+func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <-chan SubmissionTask, signalStop func()) {
 	p.startWorker(workerID)
 	defer p.state.SetWorkerStatus(workerID, WorkerStatusStopped, "worker stopped")
 
@@ -179,6 +190,9 @@ func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <
 			return
 		case task, ok := <-tasks:
 			if !ok || p.state.ShouldStop() {
+				if p.state.ShouldStop() && signalStop != nil {
+					signalStop()
+				}
 				return
 			}
 			result, err := task(ctx, workerID)
@@ -191,11 +205,19 @@ func (p *WorkerPool) submissionWorker(ctx context.Context, workerID int, tasks <
 					addErrorFields(&event, err)
 					p.emit(event)
 				}
+				if p.state.ShouldStop() && signalStop != nil {
+					signalStop()
+					return
+				}
 				continue
 			}
 			p.state.RecordSubmissionResult(workerID, result)
 			if p.eventsEnabled() {
 				p.emit(EventForSubmissionResult(workerID, result))
+			}
+			if p.state.ShouldStop() && signalStop != nil {
+				signalStop()
+				return
 			}
 		}
 	}

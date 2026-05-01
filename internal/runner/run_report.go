@@ -23,6 +23,7 @@ type RunPlanReport struct {
 	HeapAllocDelta    int64   `json:"heap_alloc_delta_bytes,omitempty"`
 	TotalAllocDelta   uint64  `json:"total_alloc_delta_bytes,omitempty"`
 	StopRequested     bool    `json:"stop_requested"`
+	FailureThreshold  bool    `json:"failure_threshold_reached"`
 	StopReason        string  `json:"stop_reason,omitempty"`
 	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
 	WorkerCount       int     `json:"worker_count"`
@@ -67,6 +68,7 @@ func NewRunPlanReport(plan Plan, snapshot StateSnapshot) RunPlanReport {
 		CompletionRate:    ratio(completed, plan.Target),
 		SuccessRate:       ratio(snapshot.Successes, completed),
 		StopRequested:     snapshot.StopRequested,
+		FailureThreshold:  snapshot.FailureThresholdReached(),
 		StopReason:        snapshot.StopReason,
 		StopFailureReason: snapshot.StopFailureReason,
 		WorkerCount:       len(snapshot.Workers),
