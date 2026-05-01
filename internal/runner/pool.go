@@ -50,7 +50,7 @@ func (p *WorkerPool) Run(ctx context.Context, tasks []Task) StateSnapshot {
 	taskCh := make(chan Task)
 	var wg sync.WaitGroup
 
-	for workerID := 1; workerID <= p.options.Concurrency; workerID++ {
+	for workerID := 1; workerID <= p.workerCount(len(tasks)); workerID++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -90,7 +90,7 @@ func (p *WorkerPool) RunSubmissions(ctx context.Context, tasks []SubmissionTask)
 	taskCh := make(chan SubmissionTask)
 	var wg sync.WaitGroup
 
-	for workerID := 1; workerID <= p.options.Concurrency; workerID++ {
+	for workerID := 1; workerID <= p.workerCount(len(tasks)); workerID++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -232,4 +232,11 @@ func (p *WorkerPool) emit(event logging.RunEvent) {
 
 func (p *WorkerPool) eventsEnabled() bool {
 	return p.options.Events != nil
+}
+
+func (p *WorkerPool) workerCount(taskCount int) int {
+	if taskCount < p.options.Concurrency {
+		return taskCount
+	}
+	return p.options.Concurrency
 }
