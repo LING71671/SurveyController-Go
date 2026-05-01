@@ -30,8 +30,8 @@ Usage:
   surveyctl version
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
-  surveyctl run --dry-run [path] [--json]
-  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>]
+  surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -54,8 +54,8 @@ const doctorUsage = `Usage:
 `
 
 const runUsage = `Usage:
-  surveyctl run --dry-run [path] [--json]
-  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>]
+  surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
 `
 
 const (
@@ -251,6 +251,7 @@ func runRun(args []string, stdout io.Writer) error {
 	mockRun := false
 	jsonOutput := false
 	eventFormat := logging.Format("")
+	overrides := runPlanOverrides{}
 	seed := int64(1)
 	path := "survey.yaml"
 	pathSet := false
@@ -269,6 +270,28 @@ func runRun(args []string, stdout io.Writer) error {
 			mockRun = true
 		case "--json":
 			jsonOutput = true
+		case "--target":
+			value, next, err := readRunFlagValue(args, i, "--target")
+			if err != nil {
+				return err
+			}
+			target, err := parsePositiveRunInt(value, "--target")
+			if err != nil {
+				return err
+			}
+			overrides.Target = target
+			i = next
+		case "--concurrency":
+			value, next, err := readRunFlagValue(args, i, "--concurrency")
+			if err != nil {
+				return err
+			}
+			concurrency, err := parsePositiveRunInt(value, "--concurrency")
+			if err != nil {
+				return err
+			}
+			overrides.Concurrency = concurrency
+			i = next
 		case "--events":
 			value, next, err := readRunFlagValue(args, i, "--events")
 			if err != nil {
@@ -312,7 +335,7 @@ func runRun(args []string, stdout io.Writer) error {
 		return usageError("run --events cannot be combined with --json summary output", runUsage)
 	}
 
-	plan, err := compileRunPlanFromFile(path)
+	plan, err := compileRunPlanFromFile(path, overrides)
 	if err != nil {
 		action := "dry-run"
 		if mockRun {
@@ -351,7 +374,12 @@ func runRun(args []string, stdout io.Writer) error {
 	return printMockRunSummary(stdout, path, plan, snapshot, seed, jsonOutput)
 }
 
-func compileRunPlanFromFile(path string) (runner.Plan, error) {
+type runPlanOverrides struct {
+	Target      int
+	Concurrency int
+}
+
+func compileRunPlanFromFile(path string, overrides runPlanOverrides) (runner.Plan, error) {
 	cfg, err := config.LoadRunConfig(path)
 	if err != nil {
 		return runner.Plan{}, err
@@ -363,7 +391,24 @@ func compileRunPlanFromFile(path string) (runner.Plan, error) {
 		}
 		cfg.Survey.Provider = providerID.String()
 	}
-	return runner.CompilePlan(cfg)
+	plan, err := runner.CompilePlan(cfg)
+	if err != nil {
+		return runner.Plan{}, err
+	}
+	return applyRunPlanOverrides(plan, overrides)
+}
+
+func applyRunPlanOverrides(plan runner.Plan, overrides runPlanOverrides) (runner.Plan, error) {
+	if overrides.Target > 0 {
+		plan.Target = overrides.Target
+	}
+	if overrides.Concurrency > 0 {
+		plan.Concurrency = overrides.Concurrency
+	}
+	if err := runner.New().ValidatePlan(plan); err != nil {
+		return runner.Plan{}, err
+	}
+	return plan, nil
 }
 
 func readRunFlagValue(args []string, index int, flag string) (string, int, error) {
@@ -372,6 +417,14 @@ func readRunFlagValue(args []string, index int, flag string) (string, int, error
 		return "", index, usageError(fmt.Sprintf("%s requires a value", flag), runUsage)
 	}
 	return args[next], next, nil
+}
+
+func parsePositiveRunInt(value string, flag string) (int, error) {
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return 0, usageError(fmt.Sprintf("%s requires a positive integer", flag), runUsage)
+	}
+	return parsed, nil
 }
 
 func parseRunEventFormat(value string) (logging.Format, error) {
