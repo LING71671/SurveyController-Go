@@ -112,6 +112,108 @@ func TestBuildAnswerPlans(t *testing.T) {
 	}
 }
 
+func TestCompileAnswerPlanBuilder(t *testing.T) {
+	questions := []QuestionPlan{
+		{
+			ID:   "q1",
+			Kind: "single",
+			Weights: []answer.OptionWeight{
+				{OptionID: "a", Weight: 0},
+				{OptionID: "b", Weight: 1},
+			},
+		},
+		{
+			ID:   "q2",
+			Kind: "multiple",
+			Options: map[string]any{
+				"min": 2,
+				"max": 2,
+			},
+			Weights: []answer.OptionWeight{
+				{OptionID: "a", Weight: 1},
+				{OptionID: "b", Weight: 1},
+				{OptionID: "c", Weight: 1},
+			},
+		},
+	}
+
+	builder, err := CompileAnswerPlanBuilder(questions)
+	if err != nil {
+		t.Fatalf("CompileAnswerPlanBuilder() returned error: %v", err)
+	}
+	questions[0].Weights[1].OptionID = "mutated"
+	questions[1].Weights[0].OptionID = "mutated"
+
+	plan, err := builder.Build(rand.New(rand.NewSource(4)))
+	if err != nil {
+		t.Fatalf("Build() returned error: %v", err)
+	}
+	if len(plan.Answers) != 2 {
+		t.Fatalf("len(Answers) = %d, want 2", len(plan.Answers))
+	}
+	if plan.Answers[0].QuestionID != "q1" || plan.Answers[0].OptionIDs[0] != "b" {
+		t.Fatalf("first answer = %+v, want copied q1=b", plan.Answers[0])
+	}
+	if plan.Answers[1].QuestionID != "q2" || len(plan.Answers[1].OptionIDs) != 2 {
+		t.Fatalf("second answer = %+v, want copied two-option multiple answer", plan.Answers[1])
+	}
+}
+
+func TestAnswerPlanBuilderBuildMany(t *testing.T) {
+	builder, err := CompileAnswerPlanBuilder([]QuestionPlan{{
+		ID:      "q1",
+		Kind:    "single",
+		Weights: []answer.OptionWeight{{OptionID: "a", Weight: 1}},
+	}})
+	if err != nil {
+		t.Fatalf("CompileAnswerPlanBuilder() returned error: %v", err)
+	}
+
+	plans, err := builder.BuildMany(rand.New(rand.NewSource(5)), 2)
+	if err != nil {
+		t.Fatalf("BuildMany() returned error: %v", err)
+	}
+	if len(plans) != 2 {
+		t.Fatalf("len(plans) = %d, want 2", len(plans))
+	}
+	plans[0].Answers[0].QuestionID = "mutated"
+	if plans[1].Answers[0].QuestionID != "q1" {
+		t.Fatalf("plans are not independent: %+v", plans)
+	}
+}
+
+func TestCompileAnswerPlanBuilderRejectsInvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		questions []QuestionPlan
+		want      string
+	}{
+		{name: "questions", want: "questions"},
+		{name: "question id", questions: []QuestionPlan{{Kind: "single"}}, want: "question id"},
+		{name: "kind", questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "not supported"},
+		{name: "weights", questions: []QuestionPlan{{ID: "q1", Kind: "single"}}, want: "weights"},
+		{
+			name: "multiple rule",
+			questions: []QuestionPlan{{
+				ID:      "q1",
+				Kind:    "multiple",
+				Options: map[string]any{"min": 2, "max": 1},
+				Weights: []answer.OptionWeight{{OptionID: "a", Weight: 1}},
+			}},
+			want: "min must not be greater",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := CompileAnswerPlanBuilder(tt.questions)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("CompileAnswerPlanBuilder() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildAnswerPlansRejectsInvalidInput(t *testing.T) {
 	questions := []QuestionPlan{{
 		ID:      "q1",

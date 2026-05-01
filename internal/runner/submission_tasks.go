@@ -39,10 +39,14 @@ func SubmissionTasksFromPlan(rng *rand.Rand, plan Plan, submitter AnswerPlanSubm
 	if submitter == nil {
 		return nil, fmt.Errorf("answer plan submitter is required")
 	}
+	builder, err := CompileAnswerPlanBuilder(plan.Questions)
+	if err != nil {
+		return nil, err
+	}
 
 	tasks := make([]SubmissionTask, 0, plan.Target)
 	for i := 0; i < plan.Target; i++ {
-		answerPlan, err := BuildAnswerPlan(rng, plan.Questions)
+		answerPlan, err := builder.Build(rng)
 		if err != nil {
 			return nil, fmt.Errorf("answer plan %d: %w", i+1, err)
 		}
