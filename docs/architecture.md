@@ -30,6 +30,7 @@ cmd/surveyctl
               -> internal/browser
               -> internal/httpclient
           -> internal/answer
+          -> internal/answerplan
           -> internal/proxy
           -> internal/sample
       -> internal/logging
@@ -51,7 +52,8 @@ cmd/surveyctl
 | `internal/engine` | 单份问卷执行流程和运行模式选择 |
 | `internal/browser` | Playwright Go 封装、浏览器池、页面会话 |
 | `internal/httpclient` | HTTP 连接池、代理 transport、重试和超时 |
-| `internal/answer` | 题型配置、答案计划、概率、严格比例、信效度 |
+| `internal/answer` | 纯答案算法：概率、严格比例、多选限制、随机文本、信效度 |
+| `internal/answerplan` | 通用答案计划和单题答案结构，不包含任何平台表单或 DOM 细节 |
 | `internal/proxy` | 代理租约、代理池、地区、TTL、健康检查 |
 | `internal/sample` | 反填数据源、样本租约、提交和回滚 |
 | `internal/logging` | 结构化日志、事件输出、脱敏 |
@@ -70,6 +72,7 @@ cmd/surveyctl
 - `RunPlan`：启动前编译好的不可变计划。
 - `QuestionPlan`：某题的答案策略和运行元数据。
 - `Answer`：运行时产生的单题答案。
+- `AnswerPlan`：通用答案计划，只表达“某题选择哪些选项或使用哪个直接值”。
 - `SubmissionResult`：单份提交结果。
 - `RunState`：并发安全的运行状态。
 - `RunEvent`：CLI 和未来 UI 订阅的进度事件。
@@ -237,6 +240,8 @@ HTTP 快速路径必须通过 provider 能力声明开启。
 
 Provider 只负责“把答案填进去”，不负责“决定答案是什么”。
 
+`internal/answerplan` 位于算法层和 provider 之间：`internal/answer` 可以生成选择结果，`internal/answerplan` 承载通用单题答案，`internal/provider/wjx`、`internal/provider/tencent` 等包再把它编译成各自平台需要的 HTTP form、API payload 或浏览器操作。这样 provider adapter 可以做高效的预索引和字段映射，但不反向承担抽样策略。
+
 ## 配置
 
 配置文件必须包含 schema version。
@@ -279,6 +284,7 @@ answer: {}
 - `verification_required`
 - `login_required`
 - `device_quota_limited`
+- `rate_limited`
 - `proxy_unavailable`
 - `sample_exhausted`
 - `user_cancelled`

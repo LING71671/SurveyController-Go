@@ -4,14 +4,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/LING71671/SurveyController-go/internal/answerplan"
 	"github.com/LING71671/SurveyController-go/internal/domain"
 )
 
 func TestBuildHTTPAnswers(t *testing.T) {
 	survey := testAnswerPlanSurvey()
 
-	got, err := BuildHTTPAnswers(survey, HTTPAnswerPlan{
-		Answers: []HTTPQuestionAnswer{
+	got, err := BuildHTTPAnswers(survey, answerplan.Plan{
+		Answers: []answerplan.QuestionAnswer{
 			{QuestionID: "q1", OptionIDs: []string{"b"}},
 			{QuestionID: "q2", OptionIDs: []string{"a", "c"}},
 			{QuestionID: "q3", OptionIDs: []string{"score5"}},
@@ -39,8 +40,8 @@ func TestBuildHTTPAnswers(t *testing.T) {
 }
 
 func TestBuildHTTPSubmissionDraftFromAnswerPlan(t *testing.T) {
-	draft, err := BuildHTTPSubmissionDraftFromAnswerPlan(testAnswerPlanSurvey(), HTTPAnswerPlan{
-		Answers: []HTTPQuestionAnswer{
+	draft, err := BuildHTTPSubmissionDraftFromAnswerPlan(testAnswerPlanSurvey(), answerplan.Plan{
+		Answers: []answerplan.QuestionAnswer{
 			{QuestionID: "q1", OptionIDs: []string{"a"}},
 			{QuestionID: "q2", OptionIDs: []string{"b", "c"}},
 			{QuestionID: "q3", Value: "4"},
@@ -61,8 +62,8 @@ func TestBuildHTTPSubmissionDraftFromAnswerPlan(t *testing.T) {
 func TestBuildHTTPAnswersSupportsDirectValues(t *testing.T) {
 	survey := testAnswerPlanSurvey()
 
-	got, err := BuildHTTPAnswers(survey, HTTPAnswerPlan{
-		Answers: []HTTPQuestionAnswer{
+	got, err := BuildHTTPAnswers(survey, answerplan.Plan{
+		Answers: []answerplan.QuestionAnswer{
 			{QuestionID: "q1", Value: "2"},
 			{QuestionID: "q2", Value: "A,C"},
 			{QuestionID: "q3", Value: "5"},
@@ -81,7 +82,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 	tests := []struct {
 		name   string
 		survey domain.SurveyDefinition
-		plan   HTTPAnswerPlan
+		plan   answerplan.Plan
 		want   string
 	}{
 		{
@@ -92,7 +93,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "missing question id",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: " ", Value: "1"},
 			}},
 			want: "question id",
@@ -100,7 +101,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "undefined question",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "missing", Value: "1"},
 			}},
 			want: "not defined",
@@ -108,16 +109,32 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "duplicate question",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "q1", Value: "1"},
 				{QuestionID: "q1", Value: "2"},
 			}},
 			want: "duplicate",
 		},
 		{
+			name:   "duplicate survey question definition",
+			survey: appendQuestion(survey, survey.Questions[0]),
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q1", Value: "1"},
+			}},
+			want: "defined more than once",
+		},
+		{
+			name:   "duplicate option definition",
+			survey: replaceQuestion(survey, 0, duplicateOptionQuestion()),
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q1", OptionIDs: []string{"a"}},
+			}},
+			want: "defined more than once",
+		},
+		{
 			name:   "unsupported kind",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "q5", Value: "hello"},
 			}},
 			want: "not supported",
@@ -125,7 +142,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "single multiple options",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "q1", OptionIDs: []string{"a", "b"}},
 			}},
 			want: "expects one option",
@@ -133,7 +150,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "unknown option",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "q1", OptionIDs: []string{"missing"}},
 			}},
 			want: "not defined",
@@ -141,7 +158,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "duplicate option",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "q2", OptionIDs: []string{"a", "a"}},
 			}},
 			want: "more than once",
@@ -149,7 +166,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 		{
 			name:   "empty direct value",
 			survey: survey,
-			plan: HTTPAnswerPlan{Answers: []HTTPQuestionAnswer{
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
 				{QuestionID: "q3", Value: " "},
 			}},
 			want: "answer value",
@@ -166,6 +183,29 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 				t.Fatalf("BuildHTTPAnswers() error = %v, want %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func appendQuestion(survey domain.SurveyDefinition, question domain.QuestionDefinition) domain.SurveyDefinition {
+	survey.Questions = append(append([]domain.QuestionDefinition(nil), survey.Questions...), question)
+	return survey
+}
+
+func replaceQuestion(survey domain.SurveyDefinition, index int, question domain.QuestionDefinition) domain.SurveyDefinition {
+	survey.Questions = append([]domain.QuestionDefinition(nil), survey.Questions...)
+	survey.Questions[index] = question
+	return survey
+}
+
+func duplicateOptionQuestion() domain.QuestionDefinition {
+	return domain.QuestionDefinition{
+		ID:    "q1",
+		Title: "Single",
+		Kind:  domain.QuestionKindSingle,
+		Options: []domain.OptionDefinition{
+			{ID: "a", Label: "A", Value: "1"},
+			{ID: "a", Label: "A again", Value: "2"},
+		},
 	}
 }
 
