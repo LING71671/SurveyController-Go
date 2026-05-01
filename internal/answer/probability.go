@@ -3,7 +3,6 @@ package answer
 import (
 	"fmt"
 	"math/rand"
-	"sort"
 )
 
 type OptionWeight struct {
@@ -92,45 +91,11 @@ func pickEven(rng *rand.Rand, weights []OptionWeight) string {
 }
 
 func PickMany(rng *rand.Rand, weights []OptionWeight, rule SelectionRule) (SelectionResult, error) {
-	if rng == nil {
-		return SelectionResult{}, fmt.Errorf("rng is required")
-	}
-	normalized, err := NormalizeWeights(weights)
+	picker, err := NewSelectionPicker(weights, rule)
 	if err != nil {
 		return SelectionResult{}, err
 	}
-	min, max, err := normalizeRule(rule, len(normalized))
-	if err != nil {
-		return SelectionResult{}, err
-	}
-
-	selected := map[string]bool{}
-	for _, item := range normalized {
-		if rng.Float64() <= item.Weight {
-			selected[item.OptionID] = true
-		}
-	}
-
-	for len(selected) < min {
-		id, err := PickOne(rng, normalized)
-		if err != nil {
-			return SelectionResult{}, err
-		}
-		selected[id] = true
-	}
-
-	if len(selected) > max {
-		ids := keys(selected)
-		rng.Shuffle(len(ids), func(i, j int) {
-			ids[i], ids[j] = ids[j], ids[i]
-		})
-		selected = map[string]bool{}
-		for _, id := range ids[:max] {
-			selected[id] = true
-		}
-	}
-
-	return SelectionResult{OptionIDs: keys(selected)}, nil
+	return picker.Pick(rng)
 }
 
 func normalizeRule(rule SelectionRule, optionCount int) (int, int, error) {
@@ -152,13 +117,4 @@ func normalizeRule(rule SelectionRule, optionCount int) (int, int, error) {
 		return 0, 0, fmt.Errorf("max must not be greater than option count")
 	}
 	return min, max, nil
-}
-
-func keys(values map[string]bool) []string {
-	ids := make([]string, 0, len(values))
-	for id := range values {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	return ids
 }
