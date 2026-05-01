@@ -27,8 +27,10 @@ func RunPlanSubmissions(ctx context.Context, plan Plan, options RunPlanOptions) 
 	if options.Submitter == nil {
 		return StateSnapshot{}, fmt.Errorf("answer plan submitter is required")
 	}
-
-	tasks, err := SubmissionTasksFromPlan(options.RNG, plan, options.Submitter)
+	if err := New().ValidatePlan(plan); err != nil {
+		return StateSnapshot{}, err
+	}
+	builder, err := CompileAnswerPlanBuilder(plan.Questions)
 	if err != nil {
 		return StateSnapshot{}, err
 	}
@@ -41,7 +43,17 @@ func RunPlanSubmissions(ctx context.Context, plan Plan, options RunPlanOptions) 
 	if err != nil {
 		return StateSnapshot{}, err
 	}
-	return pool.RunSubmissions(ctx, tasks), nil
+	return pool.RunGeneratedSubmissions(ctx, plan.Target, func(index int) (SubmissionTask, error) {
+		answerPlan, err := builder.Build(options.RNG)
+		if err != nil {
+			return nil, fmt.Errorf("answer plan %d: %w", index+1, err)
+		}
+		taskPlan := answerPlan
+		return func(ctx context.Context, workerID int) (engine.SubmissionResult, error) {
+			_ = workerID
+			return options.Submitter.Submit(ctx, taskPlan)
+		}, nil
+	})
 }
 
 func runFailureThreshold(plan Plan) int {

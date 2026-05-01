@@ -48,6 +48,35 @@ func BenchmarkWorkerPoolRunSubmissionsLightTasks(b *testing.B) {
 	}
 }
 
+func BenchmarkRunPlanSubmissionsLazyTasks(b *testing.B) {
+	for _, target := range []int{1000, 5000} {
+		b.Run(fmt.Sprintf("target_%d", target), func(b *testing.B) {
+			benchmarkRunPlanSubmissionsLazyTasks(b, target)
+		})
+	}
+}
+
+func benchmarkRunPlanSubmissionsLazyTasks(b *testing.B, target int) {
+	b.Helper()
+	plan := benchmarkRunnerPlan(target)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		snapshot, err := RunPlanSubmissions(context.Background(), plan, RunPlanOptions{
+			RNG:       rand.New(rand.NewSource(int64(i + 1))),
+			Submitter: benchmarkAnswerPlanSubmitter{},
+		})
+		if err != nil {
+			b.Fatalf("RunPlanSubmissions() returned error: %v", err)
+		}
+		if snapshot.Successes != target || snapshot.Failures != 0 {
+			b.Fatalf("snapshot counts = %d/%d, want %d/0", snapshot.Successes, snapshot.Failures, target)
+		}
+		benchmarkRunnerSnapshot = snapshot
+	}
+}
+
 func benchmarkWorkerPoolRunSubmissionsLightTasks(b *testing.B, target int) {
 	b.Helper()
 	tasks, err := SubmissionTasksFromPlan(rand.New(rand.NewSource(1)), benchmarkRunnerPlan(target), benchmarkAnswerPlanSubmitter{})

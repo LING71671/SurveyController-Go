@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -227,6 +229,75 @@ func TestWorkerPoolRunSubmissionsRecordsResults(t *testing.T) {
 	}
 	if !hasEvent(events, logging.EventSubmissionFailure) {
 		t.Fatalf("events did not include submission failure")
+	}
+}
+
+func TestWorkerPoolRunGeneratedSubmissions(t *testing.T) {
+	events := make(chan logging.RunEvent, 16)
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 2, Target: 3, Events: events})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+	var generated int32
+
+	snapshot, err := pool.RunGeneratedSubmissions(context.Background(), 3, func(index int) (SubmissionTask, error) {
+		atomic.AddInt32(&generated, 1)
+		return submissionResultTask(engine.SubmissionResult{
+			State:    provider.SubmissionStateSuccess,
+			Message:  "ok",
+			Success:  true,
+			Terminal: true,
+		}), nil
+	})
+	if err != nil {
+		t.Fatalf("RunGeneratedSubmissions() returned error: %v", err)
+	}
+	if generated != 3 {
+		t.Fatalf("generated = %d, want 3", generated)
+	}
+	if snapshot.Successes != 3 || snapshot.Failures != 0 {
+		t.Fatalf("snapshot counts = %d/%d, want 3/0", snapshot.Successes, snapshot.Failures)
+	}
+	if !hasEvent(events, logging.EventRunStarted) || !hasEvent(events, logging.EventRunFinished) {
+		t.Fatalf("events did not include run start and finish")
+	}
+}
+
+func TestWorkerPoolRunGeneratedSubmissionsReturnsGeneratorError(t *testing.T) {
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1, Target: 3})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+
+	snapshot, err := pool.RunGeneratedSubmissions(context.Background(), 3, func(index int) (SubmissionTask, error) {
+		if index == 1 {
+			return nil, fmt.Errorf("generate task %d", index)
+		}
+		return submissionResultTask(engine.SubmissionResult{
+			State:    provider.SubmissionStateSuccess,
+			Success:  true,
+			Terminal: true,
+		}), nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "generate task 1") {
+		t.Fatalf("RunGeneratedSubmissions() error = %v, want generator error", err)
+	}
+	if snapshot.Successes != 1 || snapshot.Failures != 0 {
+		t.Fatalf("snapshot counts = %d/%d, want completed generated task", snapshot.Successes, snapshot.Failures)
+	}
+}
+
+func TestWorkerPoolRunGeneratedSubmissionsRejectsInvalidInput(t *testing.T) {
+	pool, err := NewWorkerPool(PoolOptions{Concurrency: 1})
+	if err != nil {
+		t.Fatalf("NewWorkerPool() returned error: %v", err)
+	}
+
+	if _, err := pool.RunGeneratedSubmissions(context.Background(), -1, nil); err == nil || !strings.Contains(err.Error(), "task count") {
+		t.Fatalf("RunGeneratedSubmissions(negative) error = %v, want task count error", err)
+	}
+	if _, err := pool.RunGeneratedSubmissions(context.Background(), 1, nil); err == nil || !strings.Contains(err.Error(), "generator") {
+		t.Fatalf("RunGeneratedSubmissions(nil generator) error = %v, want generator error", err)
 	}
 }
 
