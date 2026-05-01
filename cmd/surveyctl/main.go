@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/doctor"
@@ -358,7 +359,9 @@ func runRun(args []string, stdout io.Writer) error {
 	if eventFormat != "" {
 		options.Events, finishEvents = startRunEventStream(stdout, eventFormat, runEventBufferSize(plan))
 	}
+	startedAt := time.Now()
 	snapshot, err := runner.RunPlanSubmissions(contextBackground(), plan, options)
+	elapsed := time.Since(startedAt)
 	if finishEvents != nil {
 		eventCount, eventErr := finishEvents()
 		if err == nil && eventErr != nil {
@@ -371,7 +374,7 @@ func runRun(args []string, stdout io.Writer) error {
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
 	}
-	return printMockRunSummary(stdout, path, plan, snapshot, seed, jsonOutput)
+	return printMockRunSummary(stdout, path, plan, snapshot, seed, elapsed, jsonOutput)
 }
 
 type runPlanOverrides struct {
@@ -531,6 +534,8 @@ type mockRunSummary struct {
 	Completed         int     `json:"completed"`
 	CompletionRate    float64 `json:"completion_rate"`
 	SuccessRate       float64 `json:"success_rate"`
+	DurationMS        int64   `json:"duration_ms"`
+	ThroughputPerSec  float64 `json:"throughput_per_second"`
 	StopRequested     bool    `json:"stop_requested"`
 	StopReason        string  `json:"stop_reason,omitempty"`
 	StopFailureReason string  `json:"stop_failure_reason,omitempty"`
@@ -576,8 +581,8 @@ func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput
 	return nil
 }
 
-func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, jsonOutput bool) error {
-	report := runner.NewRunPlanReport(plan, snapshot)
+func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, elapsed time.Duration, jsonOutput bool) error {
+	report := runner.NewTimedRunPlanReport(plan, snapshot, elapsed)
 	summary := mockRunSummary{
 		Path:              path,
 		Provider:          report.Provider,
@@ -591,6 +596,8 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 		Completed:         report.Completed,
 		CompletionRate:    report.CompletionRate,
 		SuccessRate:       report.SuccessRate,
+		DurationMS:        report.DurationMS,
+		ThroughputPerSec:  report.ThroughputPerSec,
 		StopRequested:     report.StopRequested,
 		StopReason:        report.StopReason,
 		StopFailureReason: report.StopFailureReason,
@@ -614,6 +621,8 @@ func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapsh
 	fmt.Fprintf(stdout, "  completed: %d\n", summary.Completed)
 	fmt.Fprintf(stdout, "  completion_rate: %s\n", formatPercent(summary.CompletionRate))
 	fmt.Fprintf(stdout, "  success_rate: %s\n", formatPercent(summary.SuccessRate))
+	fmt.Fprintf(stdout, "  duration_ms: %d\n", summary.DurationMS)
+	fmt.Fprintf(stdout, "  throughput_per_second: %.2f\n", summary.ThroughputPerSec)
 	fmt.Fprintf(stdout, "  stop_requested: %t\n", summary.StopRequested)
 	fmt.Fprintf(stdout, "  workers: %d\n", summary.WorkerCount)
 	fmt.Fprintln(stdout, "  network: disabled (mock)")

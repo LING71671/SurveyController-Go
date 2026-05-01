@@ -26,11 +26,14 @@ gofmt -w (git ls-files '*.go')
 ```powershell
 go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurrency 1000 --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 ```
 
 `--dry-run` 用于验证配置能否编译成运行计划；`--mock` 会实际经过答案计划生成、worker pool、运行状态和事件输出，但 submitter 是本地 mock，不访问任何平台。
+
+`--target` 和 `--concurrency` 可以覆盖配置中的运行规模，用于本地压测和验证资源上限。覆盖后的计划仍会重新走 runner 校验，因此 `browser` 模式不会被临时参数放大到超过小池限制。
 
 事件流和汇总输出的边界要保持清晰：
 

@@ -328,7 +328,7 @@ questions:
 	if code != exitOK {
 		t.Fatalf("run(mock) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "completed: 3", "completion_rate: 100.00%", "success_rate: 100.00%", "network: disabled"} {
+	for _, want := range []string{"mock run:", "provider: mock", "target: 3", "successes: 3", "failures: 0", "completed: 3", "completion_rate: 100.00%", "success_rate: 100.00%", "duration_ms:", "throughput_per_second:", "network: disabled"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -402,6 +402,12 @@ questions:
 	}
 	if summary["successes"] != float64(2) || summary["failures"] != float64(0) || summary["completed"] != float64(2) || summary["completion_rate"] != float64(1) || summary["success_rate"] != float64(1) || summary["seed"] != float64(1) {
 		t.Fatalf("summary = %+v, want mock success summary", summary)
+	}
+	if _, ok := summary["duration_ms"]; !ok {
+		t.Fatalf("summary = %+v, want duration_ms", summary)
+	}
+	if _, ok := summary["throughput_per_second"]; !ok {
+		t.Fatalf("summary = %+v, want throughput_per_second", summary)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
