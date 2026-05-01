@@ -32,6 +32,21 @@ func BuildAnswerPlan(rng *rand.Rand, questions []QuestionPlan) (answerplan.Plan,
 	return plan, nil
 }
 
+func BuildAnswerPlans(rng *rand.Rand, questions []QuestionPlan, count int) ([]answerplan.Plan, error) {
+	if count <= 0 {
+		return nil, fmt.Errorf("answer plan count must be greater than 0")
+	}
+	plans := make([]answerplan.Plan, 0, count)
+	for i := 0; i < count; i++ {
+		plan, err := BuildAnswerPlan(rng, questions)
+		if err != nil {
+			return nil, fmt.Errorf("answer plan %d: %w", i+1, err)
+		}
+		plans = append(plans, answerplan.Clone(plan))
+	}
+	return plans, nil
+}
+
 func buildQuestionAnswer(rng *rand.Rand, question QuestionPlan) (answerplan.QuestionAnswer, error) {
 	questionID := strings.TrimSpace(question.ID)
 	if questionID == "" {

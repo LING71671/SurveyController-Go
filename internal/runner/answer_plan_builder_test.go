@@ -87,6 +87,46 @@ func TestBuildAnswerPlanSupportsMinMaxAliases(t *testing.T) {
 	}
 }
 
+func TestBuildAnswerPlans(t *testing.T) {
+	questions := []QuestionPlan{
+		{
+			ID:   "q1",
+			Kind: "single",
+			Weights: []answer.OptionWeight{
+				{OptionID: "a", Weight: 1},
+				{OptionID: "b", Weight: 1},
+			},
+		},
+	}
+
+	plans, err := BuildAnswerPlans(rand.New(rand.NewSource(3)), questions, 3)
+	if err != nil {
+		t.Fatalf("BuildAnswerPlans() returned error: %v", err)
+	}
+	if len(plans) != 3 {
+		t.Fatalf("len(plans) = %d, want 3", len(plans))
+	}
+	plans[0].Answers[0].QuestionID = "mutated"
+	if plans[1].Answers[0].QuestionID != "q1" {
+		t.Fatalf("plans are not independent: %+v", plans)
+	}
+}
+
+func TestBuildAnswerPlansRejectsInvalidInput(t *testing.T) {
+	questions := []QuestionPlan{{
+		ID:      "q1",
+		Kind:    "single",
+		Weights: []answer.OptionWeight{{OptionID: "a", Weight: 1}},
+	}}
+
+	if _, err := BuildAnswerPlans(rand.New(rand.NewSource(1)), questions, 0); err == nil || !strings.Contains(err.Error(), "count") {
+		t.Fatalf("BuildAnswerPlans(count=0) error = %v, want count error", err)
+	}
+	if _, err := BuildAnswerPlans(nil, questions, 1); err == nil || !strings.Contains(err.Error(), "answer plan 1") || !strings.Contains(err.Error(), "rng") {
+		t.Fatalf("BuildAnswerPlans(nil rng) error = %v, want indexed rng error", err)
+	}
+}
+
 func TestBuildAnswerPlanRejectsInvalidInput(t *testing.T) {
 	tests := []struct {
 		name      string
