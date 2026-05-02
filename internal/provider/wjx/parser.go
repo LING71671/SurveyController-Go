@@ -25,8 +25,10 @@ func (Provider) MatchURL(rawURL string) bool {
 
 func (Provider) Capabilities() provider.Capabilities {
 	return provider.Capabilities{
-		ParseHTTP:    true,
-		ParseBrowser: true,
+		ParseHTTP:      true,
+		ParseBrowser:   true,
+		SubmitHTTP:     true,
+		SupportsHybrid: true,
 	}
 }
 
