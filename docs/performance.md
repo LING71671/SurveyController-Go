@@ -45,6 +45,20 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 
 矩阵脚本会输出每个 profile 的 target、concurrency、成功/失败数、吞吐、heap delta、goroutine 和失败阈值状态。它内部仍然只调用本地 mock run，不访问网络。
 
+## 本地验证入口
+
+提交 PR 前推荐跑：
+
+```powershell
+.\scripts\verify-local.ps1
+```
+
+默认会跑 Go 测试、`go vet`、`staticcheck` 和轻量 mock stress matrix。要包含完整 1000 并发 profile：
+
+```powershell
+.\scripts\verify-local.ps1 -IncludeFullStress
+```
+
 ## JSON 汇总
 
 脚本可输出单个 JSON 汇总，方便后续 CI 或轻量 GUI 读取：
