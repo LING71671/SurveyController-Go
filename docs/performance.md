@@ -91,6 +91,9 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --json
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --min-throughput 1 --max-goroutines 1
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --events jsonl
+.\scripts\wjx-http-dryrun-stress.ps1
+.\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -MinThroughput 1 -MaxGoroutines 1
+.\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -Json
 ```
 
 text 输出只展示汇总和首个 draft，避免高并发 dry-run 时刷屏；JSON 输出包含完整 `drafts`，适合脚本检查 answer plan 到 form 的稳定性。输出中的 `network: disabled (dry-run)` 是安全边界。
@@ -98,6 +101,8 @@ text 输出只展示汇总和首个 draft，避免高并发 dry-run 时刷屏；
 `--events text|jsonl` 可用于观察 dry-run 期间的 runner 事件。高并发 profile 中建议优先使用 `--json` 汇总或脚本预算；事件流更适合小规模诊断和后续轻量 UI 订阅。
 
 WJX HTTP dry-run 支持和 mock run 相同的预算参数。预算失败时 CLI 会先输出 dry-run 报告，再以非零退出码返回失败原因，便于 CI 和脚本保留诊断信息。
+
+脚本默认输出压缩后的 summary，包括成功数、失败数、吞吐、资源指标、draft 数量和首个 draft 的端点/答案数量；`-Json` 输出同样是压缩 summary，不会默认打印完整 drafts。
 
 ## 预算断言
 

@@ -43,6 +43,7 @@ go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --f
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --events jsonl
 .\scripts\mock-stress.ps1
+.\scripts\wjx-http-dryrun-stress.ps1
 go run ./cmd/surveyctl doctor
 go run ./cmd/surveyctl doctor browser
 ```
@@ -87,6 +88,8 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 .\scripts\mock-stress.ps1 -Json
 .\scripts\mock-stress.ps1 -MinThroughput 1 -MaxGoroutines 1
 .\scripts\mock-stress.ps1 -Target 5 -Concurrency 1 -FailEvery 2
+.\scripts\wjx-http-dryrun-stress.ps1
+.\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -Json
 .\scripts\verify-local.ps1
 ```
 
@@ -119,6 +122,7 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --json
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --min-throughput 1 --max-goroutines 1
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --events text
+.\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000
 ```
 
 ## 开发节奏
