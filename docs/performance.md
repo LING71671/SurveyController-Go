@@ -94,6 +94,8 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 .\scripts\wjx-http-dryrun-stress.ps1
 .\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -MinThroughput 1 -MaxGoroutines 1
 .\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -Json
+.\scripts\wjx-http-dryrun-stress-matrix.ps1 -SkipFull
+.\scripts\wjx-http-dryrun-stress-matrix.ps1
 ```
 
 text 输出只展示汇总和首个 draft，避免高并发 dry-run 时刷屏；JSON 输出包含完整 `drafts`，适合脚本检查 answer plan 到 form 的稳定性。输出中的 `network: disabled (dry-run)` 是安全边界。
@@ -103,6 +105,8 @@ text 输出只展示汇总和首个 draft，避免高并发 dry-run 时刷屏；
 WJX HTTP dry-run 支持和 mock run 相同的预算参数。预算失败时 CLI 会先输出 dry-run 报告，再以非零退出码返回失败原因，便于 CI 和脚本保留诊断信息。
 
 脚本默认输出压缩后的 summary，包括成功数、失败数、吞吐、资源指标、draft 数量和首个 draft 的端点/答案数量；`-Json` 输出同样是压缩 summary，不会默认打印完整 drafts。
+
+矩阵脚本会复用单 profile 脚本，默认包含 smoke、预算和 1000x1000 profile；`-SkipFull` 只跑轻量 profile，适合本地快速回归。
 
 ## 预算断言
 
