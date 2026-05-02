@@ -532,6 +532,55 @@ func TestRunWJXHTTPDryRunJSONPrintsSummary(t *testing.T) {
 	}
 }
 
+func TestRunWJXHTTPDryRunEventsTextPrintsEventStream(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, wjxPreviewConfig())
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"run", "--wjx-http-dry-run", "--fixture", fixture, "--events", "text", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(wjx http dry-run events text) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"run_started", "worker_started", "submission_success", "run_finished", "events: 4", "wjx http dry-run:", "network: disabled (dry-run)"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunWJXHTTPDryRunEventsJSONLPrintsEventStream(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, wjxPreviewConfig())
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"run", "--wjx-http-dry-run", "--fixture", fixture, "--events", "jsonl", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(wjx http dry-run events jsonl) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(lines) < 6 {
+		t.Fatalf("stdout lines = %q, want event stream and summary", lines)
+	}
+	var firstEvent map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &firstEvent); err != nil {
+		t.Fatalf("first jsonl event decode failed: %v; line=%q", err, lines[0])
+	}
+	if firstEvent["type"] != "run_started" || firstEvent["level"] != "info" {
+		t.Fatalf("firstEvent = %+v, want run_started info", firstEvent)
+	}
+	if !strings.Contains(stdout.String(), "events: 4") || !strings.Contains(stdout.String(), "wjx http dry-run:") {
+		t.Fatalf("stdout = %q, want event count and summary", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
 func TestRunWJXHTTPPreviewRequiresFixture(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -959,7 +1008,7 @@ func TestRunDryRunRejectsEvents(t *testing.T) {
 	if code != exitUsage {
 		t.Fatalf("run(dry-run events) exit code = %d, want %d", code, exitUsage)
 	}
-	if !strings.Contains(stderr.String(), "requires --mock") {
+	if !strings.Contains(stderr.String(), "requires --mock or --wjx-http-dry-run") {
 		t.Fatalf("stderr = %q, want dry-run events error", stderr.String())
 	}
 	if stdout.Len() != 0 {

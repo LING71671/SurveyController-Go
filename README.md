@@ -41,6 +41,7 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --events jsonl
 .\scripts\mock-stress.ps1
 go run ./cmd/surveyctl doctor
 go run ./cmd/surveyctl doctor browser
@@ -102,7 +103,7 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 ```
 
-`--events jsonl` 面向后续脚本、CI 和轻量 GUI 外壳；`v1.0` 前不会把 GUI 放进核心，但事件流会保持足够稳定，让 UI 只做薄订阅层。
+`--events jsonl` 面向后续脚本、CI 和轻量 GUI 外壳；`v1.0` 前不会把 GUI 放进核心，但事件流会保持足够稳定，让 UI 只做薄订阅层。当前 mock run 和 WJX HTTP dry-run 共用这套事件协议。
 
 问卷星 HTTP 路径目前提供本地预览入口，用于检查 answer plan 到 HTTP form 的映射，不执行网络请求。预览会校验配置计划和本地 fixture 的 URL、题目 ID、题型是否一致：
 
@@ -116,6 +117,7 @@ go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --f
 ```powershell
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --json
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --events text
 ```
 
 ## 开发节奏
