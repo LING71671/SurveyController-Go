@@ -46,6 +46,7 @@ go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurrency 1000 --seed 7
 .\scripts\mock-stress.ps1
+.\scripts\wjx-http-dryrun-stress.ps1
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
@@ -55,6 +56,7 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --min-throughput 1 --max-goroutines 1
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --events text
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --events jsonl
+.\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -Json
 ```
 
 `--dry-run` 用于验证配置能否编译成运行计划；`--mock` 会实际经过答案计划生成、worker pool、运行状态和事件输出，但 submitter 是本地 mock，不访问任何平台。
@@ -66,6 +68,8 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 `--target` 和 `--concurrency` 可以覆盖配置中的运行规模，用于本地压测和验证资源上限。覆盖后的计划仍会重新走 runner 校验，因此 `browser` 模式不会被临时参数放大到超过小池限制。
 
 性能预算参数目前支持 `--mock` 和 `--wjx-http-dry-run`，因为这两个入口都会产生完整 `RunPlanReport`。纯 `--dry-run` 和 `--wjx-http-preview` 不执行 runner，因此不会接受预算参数。
+
+`scripts/wjx-http-dryrun-stress.ps1` 是问卷星 HTTP dry-run 的专用压测入口。脚本内部仍调用 CLI 的本地 dry-run，不访问网络；默认输出压缩 summary，避免高并发时把所有 drafts 打到终端。
 
 常用压测入口见 [性能与压测](performance.md)。默认脚本会运行 1000 target / 1000 concurrency 的本地 mock；`-Json` 输出最终 JSON 汇总，`-FailEvery` 可验证失败阈值和停止行为。
 
