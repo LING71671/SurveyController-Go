@@ -69,6 +69,19 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 
 JSON 汇总不要和 `--events jsonl` 混用。前者是最终报告，后者是事件流。
 
+## WJX HTTP 预览
+
+问卷星 HTTP 路径目前先提供本地预览，不执行网络请求：
+
+```powershell
+go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --json
+```
+
+预览会经过配置编译、答案计划生成、问卷星 HTTP form 映射和 plan/fixture 兼容性校验，但不会调用 HTTP executor。输出中的 `network: disabled (preview)` 是这个阶段的安全边界。
+
+当前示例覆盖单选、多选和评分题，用于观察 answer plan 到 `processjq.ashx` form 的映射。后续真实网络运行必须继续复用 provider 能力门控，并在登录、验证、风控、设备次数上限或频控信号出现时停止并报告。
+
 ## 预算断言
 
 脚本支持轻量预算断言，适合本地提交前或后续 CI 使用。预算参数会透传给 `surveyctl run --mock`，由 CLI 基于同一份 `RunPlanReport` 统一判定；脚本只负责输出 JSON 或人类可读摘要：

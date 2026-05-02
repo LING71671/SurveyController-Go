@@ -103,7 +103,7 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 
 `--events jsonl` 面向后续脚本、CI 和轻量 GUI 外壳；`v1.0` 前不会把 GUI 放进核心，但事件流会保持足够稳定，让 UI 只做薄订阅层。
 
-问卷星 HTTP 路径目前提供本地预览入口，用于检查 answer plan 到 HTTP form 的映射，不执行网络请求：
+问卷星 HTTP 路径目前提供本地预览入口，用于检查 answer plan 到 HTTP form 的映射，不执行网络请求。预览会校验配置计划和本地 fixture 的 URL、题目 ID、题型是否一致：
 
 ```powershell
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
