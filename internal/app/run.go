@@ -58,26 +58,7 @@ func ApplyRunPlanOverrides(plan runner.Plan, overrides RunPlanOverrides) (runner
 }
 
 func RunMockPlan(ctx context.Context, plan runner.Plan, options MockRunOptions) (runner.RunPlanReport, error) {
-	if ctx == nil {
-		return runner.RunPlanReport{}, fmt.Errorf("context is required")
-	}
-	if options.Seed == 0 {
-		options.Seed = 1
-	}
-
-	beforeRuntime := sampleRuntime()
-	startedAt := time.Now()
-	snapshot, err := runner.RunPlanSubmissions(ctx, plan, runner.RunPlanOptions{
-		RNG:       rand.New(rand.NewSource(options.Seed)),
-		Submitter: mockSubmitter(options.FailEvery),
-		Events:    options.Events,
-	})
-	elapsed := time.Since(startedAt)
-	afterRuntime := sampleRuntime()
-	if err != nil {
-		return runner.RunPlanReport{}, err
-	}
-	return runner.NewTimedRunPlanReport(plan, snapshot, elapsed).WithResourceMetrics(runtimeMetrics(beforeRuntime, afterRuntime)), nil
+	return runPlanWithSubmitter(ctx, plan, options.Seed, mockSubmitter(options.FailEvery), options.Events)
 }
 
 func mockSubmitter(failEvery int) runner.AnswerPlanSubmitter {
@@ -85,6 +66,32 @@ func mockSubmitter(failEvery int) runner.AnswerPlanSubmitter {
 		return &runner.FailureInjectingMockSubmitter{FailEvery: failEvery}
 	}
 	return runner.MockAnswerPlanSubmitter{}
+}
+
+func runPlanWithSubmitter(ctx context.Context, plan runner.Plan, seed int64, submitter runner.AnswerPlanSubmitter, events chan<- logging.RunEvent) (runner.RunPlanReport, error) {
+	if ctx == nil {
+		return runner.RunPlanReport{}, fmt.Errorf("context is required")
+	}
+	if submitter == nil {
+		return runner.RunPlanReport{}, fmt.Errorf("answer plan submitter is required")
+	}
+	if seed == 0 {
+		seed = 1
+	}
+
+	beforeRuntime := sampleRuntime()
+	startedAt := time.Now()
+	snapshot, err := runner.RunPlanSubmissions(ctx, plan, runner.RunPlanOptions{
+		RNG:       rand.New(rand.NewSource(seed)),
+		Submitter: submitter,
+		Events:    events,
+	})
+	elapsed := time.Since(startedAt)
+	afterRuntime := sampleRuntime()
+	if err != nil {
+		return runner.RunPlanReport{}, err
+	}
+	return runner.NewTimedRunPlanReport(plan, snapshot, elapsed).WithResourceMetrics(runtimeMetrics(beforeRuntime, afterRuntime)), nil
 }
 
 type runtimeSample struct {
