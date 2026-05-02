@@ -46,9 +46,9 @@ jobs:
       - name: 运行 staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
 
-      - name: 运行 WJX HTTP dry-run smoke
+      - name: 运行本地验证 smoke
         shell: pwsh
-        run: ./scripts/wjx-http-dryrun-stress-matrix.ps1 -SkipFull
+        run: ./scripts/verify-local.ps1 -SkipGoChecks -SkipStaticcheck -SkipStress -IncludeWJXHTTPDryRunStress
 
   race:
     name: 竞态检查

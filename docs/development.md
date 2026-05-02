@@ -44,6 +44,12 @@ gofmt -w (git ls-files '*.go')
 .\scripts\verify-local.ps1 -SkipStress
 ```
 
+CI smoke 会复用同一个入口，但跳过已由 CI 前置步骤覆盖的 Go 检查：
+
+```powershell
+.\scripts\verify-local.ps1 -SkipGoChecks -SkipStaticcheck -SkipStress -IncludeWJXHTTPDryRunStress
+```
+
 ## 运行预览
 
 `surveyctl run` 当前只开放不会访问网络的预览能力：
