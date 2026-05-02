@@ -613,6 +613,44 @@ func TestRunWJXHTTPDryRunRequiresFixture(t *testing.T) {
 	}
 }
 
+func TestRunWJXHTTPDryRunBudgetPasses(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, wjxPreviewConfig())
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"run", "--wjx-http-dry-run", "--fixture", fixture, "--min-throughput", "0", "--max-goroutines", "1000", "--expect-failure-threshold", "false", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(wjx dry-run budget pass) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "wjx http dry-run:") || !strings.Contains(stdout.String(), "network: disabled (dry-run)") {
+		t.Fatalf("stdout = %q, want dry-run summary", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunWJXHTTPDryRunBudgetFailureStillPrintsSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, wjxPreviewConfig())
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"run", "--wjx-http-dry-run", "--fixture", fixture, "--min-throughput", "999999999", path}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(wjx dry-run budget failure) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stdout.String(), "wjx http dry-run:") {
+		t.Fatalf("stdout = %q, want diagnostic summary", stdout.String())
+	}
+	for _, want := range []string{"run wjx http dry-run budget failed", "throughput_per_second"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+		}
+	}
+}
+
 func TestRunMockRunBudgetPasses(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -722,7 +760,8 @@ func TestRunRejectsInvalidBudgetFlags(t *testing.T) {
 		{name: "throughput", args: []string{"run", "--mock", "--min-throughput", "-1"}, want: "--min-throughput requires a non-negative number"},
 		{name: "heap", args: []string{"run", "--mock", "--max-heap-delta", "0"}, want: "--max-heap-delta requires a positive integer"},
 		{name: "bool", args: []string{"run", "--mock", "--expect-failure-threshold", "yes"}, want: "--expect-failure-threshold requires true or false"},
-		{name: "dry-run", args: []string{"run", "--dry-run", "--min-throughput", "1"}, want: "budget flags require --mock"},
+		{name: "dry-run", args: []string{"run", "--dry-run", "--min-throughput", "1"}, want: "budget flags require --mock or --wjx-http-dry-run"},
+		{name: "preview", args: []string{"run", "--wjx-http-preview", "--min-throughput", "1"}, want: "budget flags require --mock or --wjx-http-dry-run"},
 	}
 
 	for _, tt := range tests {
