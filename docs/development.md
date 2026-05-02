@@ -82,6 +82,8 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 
 `scripts/wjx-http-dryrun-stress-matrix.ps1` 用于一次性跑 smoke、预算和可选 1000x1000 profile。日常快速检查可加 `-SkipFull`，完整 profile 留给发布前或专门性能验证。
 
+CI 的质量检查会运行 `scripts/wjx-http-dryrun-stress-matrix.ps1 -SkipFull`，用于覆盖 PowerShell 脚本、CLI 参数、本地 fixture 和 WJX HTTP dry-run runner 的基础兼容性；完整 1000x1000 profile 仍由本地显式参数触发。
+
 常用压测入口见 [性能与压测](performance.md)。默认脚本会运行 1000 target / 1000 concurrency 的本地 mock；`-Json` 输出最终 JSON 汇总，`-FailEvery` 可验证失败阈值和停止行为。
 
 事件流和汇总输出的边界要保持清晰：
