@@ -1,6 +1,7 @@
 param(
     [switch]$IncludeFullStress,
     [switch]$IncludeWJXHTTPDryRunStress,
+    [switch]$SkipGoChecks,
     [switch]$SkipStaticcheck,
     [switch]$SkipStress
 )
@@ -12,19 +13,21 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $powerShellCommand = Resolve-SurveyControllerPowerShell
 Push-Location $repoRoot
 try {
-    Write-Host "== go test ./... =="
-    & go test ./...
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+    if (-not $SkipGoChecks) {
+        Write-Host "== go test ./... =="
+        & go test ./...
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+
+        Write-Host "== go vet ./... =="
+        & go vet ./...
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
     }
 
-    Write-Host "== go vet ./... =="
-    & go vet ./...
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
-
-    if (-not $SkipStaticcheck) {
+    if (-not $SkipGoChecks -and -not $SkipStaticcheck) {
         Write-Host "== staticcheck ./... =="
         & go run honnef.co/go/tools/cmd/staticcheck@latest ./...
         if ($LASTEXITCODE -ne 0) {
