@@ -6,18 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/LING71671/SurveyController-go/internal/app"
 	"github.com/LING71671/SurveyController-go/internal/config"
 	"github.com/LING71671/SurveyController-go/internal/doctor"
 	"github.com/LING71671/SurveyController-go/internal/domain"
 	"github.com/LING71671/SurveyController-go/internal/logging"
-	"github.com/LING71671/SurveyController-go/internal/provider/builtin"
 	"github.com/LING71671/SurveyController-go/internal/provider/credamo"
 	"github.com/LING71671/SurveyController-go/internal/provider/tencent"
 	"github.com/LING71671/SurveyController-go/internal/provider/wjx"
@@ -253,7 +250,7 @@ func runRun(args []string, stdout io.Writer) error {
 	mockRun := false
 	jsonOutput := false
 	eventFormat := logging.Format("")
-	overrides := runPlanOverrides{}
+	overrides := app.RunPlanOverrides{}
 	budget := runner.RunReportBudget{}
 	budgetSet := false
 	mockFailEvery := 0
@@ -405,7 +402,7 @@ func runRun(args []string, stdout io.Writer) error {
 		return usageError("run budget flags require --mock", runUsage)
 	}
 
-	plan, err := compileRunPlanFromFile(path, overrides)
+	plan, err := app.CompileRunPlanFromFile(path, overrides)
 	if err != nil {
 		action := "dry-run"
 		if mockRun {
@@ -420,19 +417,15 @@ func runRun(args []string, stdout io.Writer) error {
 		}
 		return nil
 	}
-	options := runner.RunPlanOptions{
-		RNG:       rand.New(rand.NewSource(seed)),
-		Submitter: mockSubmitter(mockFailEvery),
-	}
 	var finishEvents func() (int, error)
-	if eventFormat != "" {
-		options.Events, finishEvents = startRunEventStream(stdout, eventFormat, runEventBufferSize(plan))
+	mockOptions := app.MockRunOptions{
+		Seed:      seed,
+		FailEvery: mockFailEvery,
 	}
-	beforeRuntime := sampleRuntime()
-	startedAt := time.Now()
-	snapshot, err := runner.RunPlanSubmissions(contextBackground(), plan, options)
-	elapsed := time.Since(startedAt)
-	afterRuntime := sampleRuntime()
+	if eventFormat != "" {
+		mockOptions.Events, finishEvents = startRunEventStream(stdout, eventFormat, runEventBufferSize(plan))
+	}
+	report, err := app.RunMockPlan(contextBackground(), plan, mockOptions)
 	if finishEvents != nil {
 		eventCount, eventErr := finishEvents()
 		if err == nil && eventErr != nil {
@@ -445,7 +438,6 @@ func runRun(args []string, stdout io.Writer) error {
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
 	}
-	report := runner.NewTimedRunPlanReport(plan, snapshot, elapsed).WithResourceMetrics(runtimeMetrics(beforeRuntime, afterRuntime))
 	if err := printMockRunSummary(stdout, path, report, seed, jsonOutput); err != nil {
 		return err
 	}
@@ -455,50 +447,6 @@ func runRun(args []string, stdout io.Writer) error {
 		}
 	}
 	return nil
-}
-
-func mockSubmitter(failEvery int) runner.AnswerPlanSubmitter {
-	if failEvery > 0 {
-		return &runner.FailureInjectingMockSubmitter{FailEvery: failEvery}
-	}
-	return runner.MockAnswerPlanSubmitter{}
-}
-
-type runPlanOverrides struct {
-	Target      int
-	Concurrency int
-}
-
-func compileRunPlanFromFile(path string, overrides runPlanOverrides) (runner.Plan, error) {
-	cfg, err := config.LoadRunConfig(path)
-	if err != nil {
-		return runner.Plan{}, err
-	}
-	if strings.TrimSpace(cfg.Survey.Provider) == "" {
-		providerID, ok := builtin.DetectProvider(cfg.Survey.URL)
-		if !ok {
-			return runner.Plan{}, fmt.Errorf("provider is required or survey.url must match a built-in provider: %s", cfg.Survey.URL)
-		}
-		cfg.Survey.Provider = providerID.String()
-	}
-	plan, err := runner.CompilePlan(cfg)
-	if err != nil {
-		return runner.Plan{}, err
-	}
-	return applyRunPlanOverrides(plan, overrides)
-}
-
-func applyRunPlanOverrides(plan runner.Plan, overrides runPlanOverrides) (runner.Plan, error) {
-	if overrides.Target > 0 {
-		plan.Target = overrides.Target
-	}
-	if overrides.Concurrency > 0 {
-		plan.Concurrency = overrides.Concurrency
-	}
-	if err := runner.New().ValidatePlan(plan); err != nil {
-		return runner.Plan{}, err
-	}
-	return plan, nil
 }
 
 func readRunFlagValue(args []string, index int, flag string) (string, int, error) {
@@ -558,38 +506,6 @@ func parseRunEventFormat(value string) (logging.Format, error) {
 type runEventStreamResult struct {
 	count int
 	err   error
-}
-
-type runtimeSample struct {
-	heapAlloc  uint64
-	totalAlloc uint64
-	goroutines int
-}
-
-func sampleRuntime() runtimeSample {
-	var stats runtime.MemStats
-	runtime.ReadMemStats(&stats)
-	return runtimeSample{
-		heapAlloc:  stats.HeapAlloc,
-		totalAlloc: stats.TotalAlloc,
-		goroutines: runtime.NumGoroutine(),
-	}
-}
-
-func runtimeMetrics(before runtimeSample, after runtimeSample) runner.RunResourceMetrics {
-	return runner.RunResourceMetrics{
-		Goroutines:      after.goroutines,
-		HeapAllocBytes:  after.heapAlloc,
-		HeapAllocDelta:  int64(after.heapAlloc) - int64(before.heapAlloc),
-		TotalAllocDelta: subtractUint64(after.totalAlloc, before.totalAlloc),
-	}
-}
-
-func subtractUint64(after uint64, before uint64) uint64 {
-	if after < before {
-		return 0
-	}
-	return after - before
 }
 
 func startRunEventStream(stdout io.Writer, format logging.Format, bufferSize int) (chan<- logging.RunEvent, func() (int, error)) {
