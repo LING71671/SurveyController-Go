@@ -63,6 +63,54 @@ func TestRunWJXHTTPPlanStopsOnVerification(t *testing.T) {
 	}
 }
 
+func TestRunWJXHTTPDryRunReportsAndDrafts(t *testing.T) {
+	plan, err := CompileRunPlanFromFile(writeRunConfig(t, validWJXRunConfig()), RunPlanOverrides{Target: 2, Concurrency: 1})
+	if err != nil {
+		t.Fatalf("CompileRunPlanFromFile() error = %v", err)
+	}
+
+	result, err := RunWJXHTTPDryRun(context.Background(), plan, WJXHTTPRunOptions{
+		Seed:   7,
+		Survey: testWJXSurvey(),
+	})
+	if err != nil {
+		t.Fatalf("RunWJXHTTPDryRun() error = %v", err)
+	}
+
+	if result.Report.Successes != 2 || result.Report.Failures != 0 || result.Report.Completed != 2 {
+		t.Fatalf("report = %+v, want two successful dry-run submissions", result.Report)
+	}
+	if len(result.Drafts) != 2 {
+		t.Fatalf("drafts = %d, want 2", len(result.Drafts))
+	}
+	for _, draft := range result.Drafts {
+		if draft.Provider != "wjx" || draft.Mode != "http" || draft.Method != http.MethodPost {
+			t.Fatalf("draft = %+v, want wjx http POST preview", draft)
+		}
+		if draft.Endpoint != "https://www.wjx.cn/joinnew/processjq.ashx" || draft.SurveyID != "example" {
+			t.Fatalf("draft endpoint/id = %q/%q, want WJX process endpoint and survey id", draft.Endpoint, draft.SurveyID)
+		}
+		if draft.AnswerCount != 1 || draft.Form["q1"][0] != "1" || draft.Form["curID"][0] != "example" {
+			t.Fatalf("draft form = %+v, want generated answer draft", draft.Form)
+		}
+	}
+}
+
+func TestRunWJXHTTPDryRunRejectsIncompatiblePlan(t *testing.T) {
+	plan, err := CompileRunPlanFromFile(writeRunConfig(t, validWJXRunConfig()), RunPlanOverrides{})
+	if err != nil {
+		t.Fatalf("CompileRunPlanFromFile() error = %v", err)
+	}
+	plan.URL = "https://www.wjx.cn/vm/other.aspx"
+
+	_, err = RunWJXHTTPDryRun(context.Background(), plan, WJXHTTPRunOptions{
+		Survey: testWJXSurvey(),
+	})
+	if err == nil || !strings.Contains(err.Error(), "dry-run url mismatch") {
+		t.Fatalf("RunWJXHTTPDryRun() error = %v, want url mismatch", err)
+	}
+}
+
 func TestRunWJXHTTPPlanRejectsInvalidInputs(t *testing.T) {
 	plan, err := CompileRunPlanFromFile(writeRunConfig(t, validWJXRunConfig()), RunPlanOverrides{})
 	if err != nil {

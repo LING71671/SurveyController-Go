@@ -28,7 +28,7 @@ func (e *DryRunHTTPSubmissionExecutor) ExecuteHTTPSubmission(ctx context.Context
 	return HTTPSubmissionResponse{
 		StatusCode: http.StatusAccepted,
 		Header:     header,
-		Body:       "submission accepted by local dry-run executor",
+		Body:       "submission accepted by local dry-run executor; success",
 	}, nil
 }
 

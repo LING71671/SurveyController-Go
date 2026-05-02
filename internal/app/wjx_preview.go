@@ -49,14 +49,18 @@ func PreviewWJXHTTPSubmission(plan runner.Plan, options WJXHTTPPreviewOptions) (
 }
 
 func ValidateWJXHTTPPreview(plan runner.Plan, survey domain.SurveyDefinition) error {
+	return validateWJXHTTPPlanCompatibility(plan, survey, "preview")
+}
+
+func validateWJXHTTPPlanCompatibility(plan runner.Plan, survey domain.SurveyDefinition, operation string) error {
 	if strings.TrimSpace(plan.Provider) != domain.ProviderWJX.String() {
-		return fmt.Errorf("wjx http preview requires wjx provider")
+		return fmt.Errorf("wjx http %s requires wjx provider", operation)
 	}
 	if plan.Mode.String() != "http" {
-		return fmt.Errorf("wjx http preview requires http mode")
+		return fmt.Errorf("wjx http %s requires http mode", operation)
 	}
 	if strings.TrimSpace(plan.URL) != strings.TrimSpace(survey.URL) {
-		return fmt.Errorf("wjx http preview url mismatch: plan %q, survey %q", plan.URL, survey.URL)
+		return fmt.Errorf("wjx http %s url mismatch: plan %q, survey %q", operation, plan.URL, survey.URL)
 	}
 	if err := survey.Validate(); err != nil {
 		return fmt.Errorf("wjx survey: %w", err)
