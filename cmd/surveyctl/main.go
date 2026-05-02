@@ -33,7 +33,7 @@ Usage:
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
-  surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -57,7 +57,7 @@ const doctorUsage = `Usage:
 
 const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
-  surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
+  surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
 `
 
 const (
@@ -254,6 +254,8 @@ func runRun(args []string, stdout io.Writer) error {
 	jsonOutput := false
 	eventFormat := logging.Format("")
 	overrides := runPlanOverrides{}
+	budget := runner.RunReportBudget{}
+	budgetSet := false
 	mockFailEvery := 0
 	seed := int64(1)
 	path := "survey.yaml"
@@ -328,6 +330,54 @@ func runRun(args []string, stdout io.Writer) error {
 			}
 			mockFailEvery = failEvery
 			i = next
+		case "--min-throughput":
+			value, next, err := readRunFlagValue(args, i, "--min-throughput")
+			if err != nil {
+				return err
+			}
+			minThroughput, err := parseNonNegativeRunFloat(value, "--min-throughput")
+			if err != nil {
+				return err
+			}
+			budget.MinThroughput = minThroughput
+			budgetSet = true
+			i = next
+		case "--max-heap-delta":
+			value, next, err := readRunFlagValue(args, i, "--max-heap-delta")
+			if err != nil {
+				return err
+			}
+			maxHeapDelta, err := parsePositiveRunUint64(value, "--max-heap-delta")
+			if err != nil {
+				return err
+			}
+			budget.MaxHeapAllocDelta = maxHeapDelta
+			budgetSet = true
+			i = next
+		case "--max-goroutines":
+			value, next, err := readRunFlagValue(args, i, "--max-goroutines")
+			if err != nil {
+				return err
+			}
+			maxGoroutines, err := parsePositiveRunInt(value, "--max-goroutines")
+			if err != nil {
+				return err
+			}
+			budget.MaxGoroutines = maxGoroutines
+			budgetSet = true
+			i = next
+		case "--expect-failure-threshold":
+			value, next, err := readRunFlagValue(args, i, "--expect-failure-threshold")
+			if err != nil {
+				return err
+			}
+			expectFailureThreshold, err := parseRunBool(value, "--expect-failure-threshold")
+			if err != nil {
+				return err
+			}
+			budget.ExpectFailureThreshold = runner.BoolBudget(expectFailureThreshold)
+			budgetSet = true
+			i = next
 		default:
 			if pathSet {
 				return usageError("run accepts at most one path", runUsage)
@@ -350,6 +400,9 @@ func runRun(args []string, stdout io.Writer) error {
 	}
 	if dryRun && mockFailEvery > 0 {
 		return usageError("run --mock-fail-every requires --mock", runUsage)
+	}
+	if dryRun && budgetSet {
+		return usageError("run budget flags require --mock", runUsage)
 	}
 
 	plan, err := compileRunPlanFromFile(path, overrides)
@@ -392,7 +445,16 @@ func runRun(args []string, stdout io.Writer) error {
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("run mock failed: %v", err), "")
 	}
-	return printMockRunSummary(stdout, path, plan, snapshot, seed, elapsed, runtimeMetrics(beforeRuntime, afterRuntime), jsonOutput)
+	report := runner.NewTimedRunPlanReport(plan, snapshot, elapsed).WithResourceMetrics(runtimeMetrics(beforeRuntime, afterRuntime))
+	if err := printMockRunSummary(stdout, path, report, seed, jsonOutput); err != nil {
+		return err
+	}
+	if budgetSet {
+		if err := budget.Check(report); err != nil {
+			return commandError(exitFailure, fmt.Sprintf("run mock budget failed: %v", err), "")
+		}
+	}
+	return nil
 }
 
 func mockSubmitter(failEvery int) runner.AnswerPlanSubmitter {
@@ -453,6 +515,33 @@ func parsePositiveRunInt(value string, flag string) (int, error) {
 		return 0, usageError(fmt.Sprintf("%s requires a positive integer", flag), runUsage)
 	}
 	return parsed, nil
+}
+
+func parsePositiveRunUint64(value string, flag string) (uint64, error) {
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || parsed == 0 {
+		return 0, usageError(fmt.Sprintf("%s requires a positive integer", flag), runUsage)
+	}
+	return parsed, nil
+}
+
+func parseNonNegativeRunFloat(value string, flag string) (float64, error) {
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil || parsed < 0 {
+		return 0, usageError(fmt.Sprintf("%s requires a non-negative number", flag), runUsage)
+	}
+	return parsed, nil
+}
+
+func parseRunBool(value string, flag string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, usageError(fmt.Sprintf("%s requires true or false", flag), runUsage)
+	}
 }
 
 func parseRunEventFormat(value string) (logging.Format, error) {
@@ -643,8 +732,7 @@ func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput
 	return nil
 }
 
-func printMockRunSummary(stdout io.Writer, path string, plan runner.Plan, snapshot runner.StateSnapshot, seed int64, elapsed time.Duration, metrics runner.RunResourceMetrics, jsonOutput bool) error {
-	report := runner.NewTimedRunPlanReport(plan, snapshot, elapsed).WithResourceMetrics(metrics)
+func printMockRunSummary(stdout io.Writer, path string, report runner.RunPlanReport, seed int64, jsonOutput bool) error {
 	summary := mockRunSummary{
 		Path:              path,
 		Provider:          report.Provider,
