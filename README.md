@@ -83,6 +83,7 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 .\scripts\mock-stress.ps1
 .\scripts\mock-stress.ps1 -Json
 .\scripts\mock-stress.ps1 -Target 5 -Concurrency 1 -FailEvery 2
+.\scripts\verify-local.ps1
 ```
 
 需要观察运行事件时可加：

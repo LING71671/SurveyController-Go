@@ -19,6 +19,24 @@ gofmt -w (git ls-files '*.go')
 
 在 Windows 上，`go test -race` 需要 CGO 和 `gcc` 之类的 C 编译器。如果本地竞态检查失败并提示 `C compiler "gcc" not found`，可以先运行普通测试，并依赖 Ubuntu CI 中的竞态检查，直到本地安装好 C 工具链。
 
+常用本地验证可以直接跑：
+
+```powershell
+.\scripts\verify-local.ps1
+```
+
+默认会执行 `go test ./...`、`go vet ./...`、`staticcheck` 和轻量 mock stress matrix。需要完整 1000 并发 profile 时：
+
+```powershell
+.\scripts\verify-local.ps1 -IncludeFullStress
+```
+
+如果只是快速检查 Go 代码、不跑压测：
+
+```powershell
+.\scripts\verify-local.ps1 -SkipStress
+```
+
 ## 运行预览
 
 `surveyctl run` 当前只开放不会访问网络的预览能力：
