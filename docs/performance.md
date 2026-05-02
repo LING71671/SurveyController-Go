@@ -29,6 +29,22 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 
 这些数字用于观察趋势，不作为跨机器绝对承诺。比较不同实现时，优先在同一机器、同一配置、同一 seed 下重复运行。
 
+## 压测矩阵
+
+如果希望一次验证成功路径、失败阈值和 1000 并发路径，可以运行：
+
+```powershell
+.\scripts\mock-stress-matrix.ps1
+```
+
+快速 smoke 可以跳过完整 1000 并发 profile：
+
+```powershell
+.\scripts\mock-stress-matrix.ps1 -SkipFull
+```
+
+矩阵脚本会输出每个 profile 的 target、concurrency、成功/失败数、吞吐、heap delta、goroutine 和失败阈值状态。它内部仍然只调用本地 mock run，不访问网络。
+
 ## JSON 汇总
 
 脚本可输出单个 JSON 汇总，方便后续 CI 或轻量 GUI 读取：
