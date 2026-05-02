@@ -40,6 +40,7 @@ go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 .\scripts\mock-stress.ps1
 go run ./cmd/surveyctl doctor
 go run ./cmd/surveyctl doctor browser
@@ -108,6 +109,13 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 ```powershell
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --json
+```
+
+需要经过完整 runner/worker pool 但仍然禁用网络时，可以使用问卷星 HTTP dry-run。它会从本地 fixture 构建 survey schema，运行 answer plan 和 HTTP pipeline，并用本地 dry-run executor 记录 draft：
+
+```powershell
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --json
 ```
 
 ## 开发节奏

@@ -82,6 +82,17 @@ go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --f
 
 当前示例覆盖单选、多选和评分题，用于观察 answer plan 到 `processjq.ashx` form 的映射。后续真实网络运行必须继续复用 provider 能力门控，并在登录、验证、风控、设备次数上限或频控信号出现时停止并报告。
 
+## WJX HTTP Dry-Run
+
+需要验证完整 runner 和 HTTP pipeline 时，可以使用本地 dry-run executor。它会记录生成的 HTTP draft，但不会执行网络请求：
+
+```powershell
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --json
+```
+
+text 输出只展示汇总和首个 draft，避免高并发 dry-run 时刷屏；JSON 输出包含完整 `drafts`，适合脚本检查 answer plan 到 form 的稳定性。输出中的 `network: disabled (dry-run)` 是安全边界。
+
 ## 预算断言
 
 脚本支持轻量预算断言，适合本地提交前或后续 CI 使用。预算参数会透传给 `surveyctl run --mock`，由 CLI 基于同一份 `RunPlanReport` 统一判定；脚本只负责输出 JSON 或人类可读摘要：
