@@ -9,9 +9,7 @@ import (
 	"github.com/LING71671/SurveyController-go/internal/engine"
 )
 
-type AnswerPlanSubmitter interface {
-	Submit(ctx context.Context, plan answerplan.Plan) (engine.SubmissionResult, error)
-}
+type AnswerPlanSubmitter = engine.AnswerPlanSubmitter
 
 func SubmissionTasksFromAnswerPlans(submitter AnswerPlanSubmitter, plans []answerplan.Plan) ([]SubmissionTask, error) {
 	if submitter == nil {
@@ -26,7 +24,7 @@ func SubmissionTasksFromAnswerPlans(submitter AnswerPlanSubmitter, plans []answe
 		taskPlan := answerplan.Clone(plan)
 		tasks = append(tasks, func(ctx context.Context, workerID int) (engine.SubmissionResult, error) {
 			_ = workerID
-			return submitter.Submit(ctx, taskPlan)
+			return engine.SubmitAnswerPlan(ctx, submitter, taskPlan)
 		})
 	}
 	return tasks, nil
@@ -53,7 +51,7 @@ func SubmissionTasksFromPlan(rng *rand.Rand, plan Plan, submitter AnswerPlanSubm
 		taskPlan := answerPlan
 		tasks = append(tasks, func(ctx context.Context, workerID int) (engine.SubmissionResult, error) {
 			_ = workerID
-			return submitter.Submit(ctx, taskPlan)
+			return engine.SubmitAnswerPlan(ctx, submitter, taskPlan)
 		})
 	}
 	return tasks, nil
