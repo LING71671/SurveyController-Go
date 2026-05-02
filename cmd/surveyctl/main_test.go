@@ -438,7 +438,7 @@ func TestRunWJXHTTPPreviewPrintsSummary(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(wjx http preview) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	for _, want := range []string{"wjx http preview:", "provider: wjx", "mode: http", "method: POST", "endpoint: https://www.wjx.cn/joinnew/processjq.ashx", "survey_id: example", "q1: browser", "network: disabled (preview)"} {
+	for _, want := range []string{"wjx http preview:", "provider: wjx", "mode: http", "method: POST", "endpoint: https://www.wjx.cn/joinnew/processjq.ashx", "survey_id: example", "q1: browser", "q2: q2_a,q2_b", "q4: 5", "network: disabled (preview)"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -468,6 +468,12 @@ func TestRunWJXHTTPPreviewJSONPrintsSummary(t *testing.T) {
 	form := summary["form"].(map[string]any)
 	if values := form["q1"].([]any); values[0] != "browser" {
 		t.Fatalf("form = %+v, want q1 browser", form)
+	}
+	if values := form["q2"].([]any); values[0] != "q2_a,q2_b" {
+		t.Fatalf("form = %+v, want q2 multiple answer", form)
+	}
+	if values := form["q4"].([]any); values[0] != "5" {
+		t.Fatalf("form = %+v, want q4 rating answer", form)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
@@ -636,6 +642,24 @@ questions:
     options:
       weights:
         - option_id: q1_a
+          weight: 1
+  - id: q2
+    kind: multiple
+    options:
+      min_selected: 2
+      max_selected: 2
+      weights:
+        - option_id: q2_a
+          weight: 1
+        - option_id: q2_b
+          weight: 1
+        - option_id: q2_c
+          weight: 0
+  - id: q4
+    kind: rating
+    options:
+      weights:
+        - option_id: q4_5
           weight: 1
 `
 }
