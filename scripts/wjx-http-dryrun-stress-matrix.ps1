@@ -8,13 +8,8 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $stressScript = Join-Path $PSScriptRoot "wjx-http-dryrun-stress.ps1"
-$powerShellCommand = Get-Command pwsh -ErrorAction SilentlyContinue
-if ($null -eq $powerShellCommand) {
-    $powerShellCommand = Get-Command powershell -ErrorAction SilentlyContinue
-}
-if ($null -eq $powerShellCommand) {
-    throw "PowerShell executable was not found."
-}
+. (Join-Path $PSScriptRoot "lib/powershell.ps1")
+$powerShellCommand = Resolve-SurveyControllerPowerShell
 
 $profiles = @(
     @{
@@ -38,12 +33,7 @@ Push-Location $repoRoot
 try {
     $rows = @()
     foreach ($profile in $profiles) {
-        $commandArgs = @("-NoProfile")
-        if ($powerShellCommand.Name -like "powershell*") {
-            $commandArgs += @("-ExecutionPolicy", "Bypass")
-        }
-        $commandArgs += @("-File", $stressScript)
-        $commandArgs += $profile.Args
+        $commandArgs = New-SurveyControllerPowerShellFileArgs -Command $powerShellCommand -File $stressScript -Arguments $profile.Args
         $output = & $powerShellCommand.Source @commandArgs
         if ($LASTEXITCODE -ne 0) {
             throw "profile $($profile.Name) failed with exit code $LASTEXITCODE"

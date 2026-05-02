@@ -8,6 +8,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "lib/powershell.ps1")
+$powerShellCommand = Resolve-SurveyControllerPowerShell
 Push-Location $repoRoot
 try {
     Write-Host "== go test ./... =="
@@ -36,7 +38,8 @@ try {
         if (-not $IncludeFullStress) {
             $stressArgs += "-SkipFull"
         }
-        & powershell -ExecutionPolicy Bypass -File scripts/mock-stress-matrix.ps1 @stressArgs
+        $commandArgs = New-SurveyControllerPowerShellFileArgs -Command $powerShellCommand -File "scripts/mock-stress-matrix.ps1" -Arguments $stressArgs
+        & $powerShellCommand.Source @commandArgs
         if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
         }
@@ -48,7 +51,8 @@ try {
         if (-not $IncludeFullStress) {
             $wjxStressArgs += "-SkipFull"
         }
-        & powershell -ExecutionPolicy Bypass -File scripts/wjx-http-dryrun-stress-matrix.ps1 @wjxStressArgs
+        $commandArgs = New-SurveyControllerPowerShellFileArgs -Command $powerShellCommand -File "scripts/wjx-http-dryrun-stress-matrix.ps1" -Arguments $wjxStressArgs
+        & $powerShellCommand.Source @commandArgs
         if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
         }
