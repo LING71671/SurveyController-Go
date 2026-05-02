@@ -3,6 +3,9 @@ package app
 import (
 	"strings"
 	"testing"
+
+	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/runner"
 )
 
 func TestPreviewWJXHTTPSubmissionBuildsDraft(t *testing.T) {
@@ -49,7 +52,7 @@ func TestPreviewWJXHTTPSubmissionRejectsInvalidInputs(t *testing.T) {
 		},
 		{
 			name: "survey",
-			want: "wjx url",
+			want: "url mismatch",
 		},
 	}
 
@@ -67,6 +70,62 @@ func TestPreviewWJXHTTPSubmissionRejectsInvalidInputs(t *testing.T) {
 			_, err := PreviewWJXHTTPSubmission(testPlan, WJXHTTPPreviewOptions{Survey: survey})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("PreviewWJXHTTPSubmission() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateWJXHTTPPreviewRejectsIncompatiblePlan(t *testing.T) {
+	plan, err := CompileRunPlanFromFile(writeRunConfig(t, validWJXRunConfig()), RunPlanOverrides{})
+	if err != nil {
+		t.Fatalf("CompileRunPlanFromFile() error = %v", err)
+	}
+
+	tests := []struct {
+		name string
+		mut  func(*runnerPlanForTest, *surveyForTest)
+		want string
+	}{
+		{
+			name: "mode",
+			mut: func(p *runnerPlanForTest, s *surveyForTest) {
+				p.Mode = "hybrid"
+			},
+			want: "http mode",
+		},
+		{
+			name: "url",
+			mut: func(p *runnerPlanForTest, s *surveyForTest) {
+				s.URL = "https://www.wjx.cn/vm/other.aspx"
+			},
+			want: "url mismatch",
+		},
+		{
+			name: "question",
+			mut: func(p *runnerPlanForTest, s *surveyForTest) {
+				p.Questions[0].ID = "missing"
+			},
+			want: "not present",
+		},
+		{
+			name: "kind",
+			mut: func(p *runnerPlanForTest, s *surveyForTest) {
+				p.Questions[0].Kind = "multiple"
+			},
+			want: "kind mismatch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testPlan := plan
+			testPlan.Questions = append([]runner.QuestionPlan(nil), plan.Questions...)
+			testSurvey := testWJXSurvey()
+			tt.mut((*runnerPlanForTest)(&testPlan), (*surveyForTest)(&testSurvey))
+
+			err := ValidateWJXHTTPPreview(testPlan, testSurvey)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("ValidateWJXHTTPPreview() error = %v, want %q", err, tt.want)
 			}
 		})
 	}
@@ -93,3 +152,6 @@ func TestPreviewWJXHTTPSubmissionClonesDraftMaps(t *testing.T) {
 		t.Fatalf("second preview = %+v, want independent maps", second)
 	}
 }
+
+type runnerPlanForTest = runner.Plan
+type surveyForTest = domain.SurveyDefinition

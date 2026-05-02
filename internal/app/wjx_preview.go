@@ -29,11 +29,8 @@ type WJXHTTPSubmissionPreview struct {
 }
 
 func PreviewWJXHTTPSubmission(plan runner.Plan, options WJXHTTPPreviewOptions) (WJXHTTPSubmissionPreview, error) {
-	if strings.TrimSpace(plan.Provider) != domain.ProviderWJX.String() {
-		return WJXHTTPSubmissionPreview{}, fmt.Errorf("wjx http preview requires wjx provider")
-	}
-	if err := options.Survey.Validate(); err != nil {
-		return WJXHTTPSubmissionPreview{}, fmt.Errorf("wjx survey: %w", err)
+	if err := ValidateWJXHTTPPreview(plan, options.Survey); err != nil {
+		return WJXHTTPSubmissionPreview{}, err
 	}
 	seed := options.Seed
 	if seed == 0 {
@@ -49,6 +46,58 @@ func PreviewWJXHTTPSubmission(plan runner.Plan, options WJXHTTPPreviewOptions) (
 		return WJXHTTPSubmissionPreview{}, err
 	}
 	return previewFromWJXHTTPDraft(plan, draft, len(answerPlan.Answers)), nil
+}
+
+func ValidateWJXHTTPPreview(plan runner.Plan, survey domain.SurveyDefinition) error {
+	if strings.TrimSpace(plan.Provider) != domain.ProviderWJX.String() {
+		return fmt.Errorf("wjx http preview requires wjx provider")
+	}
+	if plan.Mode.String() != "http" {
+		return fmt.Errorf("wjx http preview requires http mode")
+	}
+	if strings.TrimSpace(plan.URL) != strings.TrimSpace(survey.URL) {
+		return fmt.Errorf("wjx http preview url mismatch: plan %q, survey %q", plan.URL, survey.URL)
+	}
+	if err := survey.Validate(); err != nil {
+		return fmt.Errorf("wjx survey: %w", err)
+	}
+	questions, err := wjxPreviewQuestionIndex(survey.Questions)
+	if err != nil {
+		return err
+	}
+	for _, question := range plan.Questions {
+		id := strings.TrimSpace(question.ID)
+		if id == "" {
+			return fmt.Errorf("wjx http preview question id is required")
+		}
+		surveyQuestion, ok := questions[id]
+		if !ok {
+			return fmt.Errorf("wjx http preview question %q is not present in survey fixture", id)
+		}
+		kind := strings.TrimSpace(question.Kind)
+		if kind == "" {
+			return fmt.Errorf("wjx http preview question %q kind is required", id)
+		}
+		if surveyQuestion.Kind.String() != kind {
+			return fmt.Errorf("wjx http preview question %q kind mismatch: plan %q, survey %q", id, kind, surveyQuestion.Kind)
+		}
+	}
+	return nil
+}
+
+func wjxPreviewQuestionIndex(questions []domain.QuestionDefinition) (map[string]domain.QuestionDefinition, error) {
+	index := make(map[string]domain.QuestionDefinition, len(questions))
+	for _, question := range questions {
+		id := strings.TrimSpace(question.ID)
+		if id == "" {
+			return nil, fmt.Errorf("wjx survey question id is required")
+		}
+		if _, exists := index[id]; exists {
+			return nil, fmt.Errorf("wjx survey question %q is defined more than once", id)
+		}
+		index[id] = question
+	}
+	return index, nil
 }
 
 func previewFromWJXHTTPDraft(plan runner.Plan, draft wjx.HTTPSubmissionDraft, answerCount int) WJXHTTPSubmissionPreview {
