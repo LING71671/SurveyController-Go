@@ -283,7 +283,13 @@ run:
   target: 1
   concurrency: 1
   mode: http
-questions: []
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
 `)
 
 	code := run([]string{"run", "--dry-run", "--target", "7", "--concurrency", "3", path}, &stdout, &stderr)
@@ -419,6 +425,137 @@ questions:
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunMockRunBudgetPasses(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 2
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--min-throughput", "0", "--max-heap-delta", "999999999", "--max-goroutines", "1000", "--expect-failure-threshold", "false", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(mock budget pass) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "mock run:") {
+		t.Fatalf("stdout = %q, want mock summary", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunMockRunBudgetFailureStillPrintsSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--min-throughput", "999999999", path}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(mock budget failure) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stdout.String(), "mock run:") {
+		t.Fatalf("stdout = %q, want diagnostic summary", stdout.String())
+	}
+	for _, want := range []string{"run mock budget failed", "throughput_per_second"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+		}
+	}
+}
+
+func TestRunMockRunBudgetChecksFailureThreshold(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, `schema_version: 1
+survey:
+  url: "https://example.com/survey"
+  provider: "mock"
+run:
+  target: 5
+  concurrency: 1
+  mode: http
+  failure_threshold: 1
+  fail_stop_enabled: true
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: a
+          weight: 1
+`)
+
+	code := run([]string{"run", "--mock", "--mock-fail-every", "2", "--expect-failure-threshold", "true", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(mock failure threshold budget) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "failure_threshold_reached: true") {
+		t.Fatalf("stdout = %q, want threshold reached", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunRejectsInvalidBudgetFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "throughput", args: []string{"run", "--mock", "--min-throughput", "-1"}, want: "--min-throughput requires a non-negative number"},
+		{name: "heap", args: []string{"run", "--mock", "--max-heap-delta", "0"}, want: "--max-heap-delta requires a positive integer"},
+		{name: "bool", args: []string{"run", "--mock", "--expect-failure-threshold", "yes"}, want: "--expect-failure-threshold requires true or false"},
+		{name: "dry-run", args: []string{"run", "--dry-run", "--min-throughput", "1"}, want: "budget flags require --mock"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+
+			code := run(tt.args, &stdout, &stderr)
+			if code != exitUsage {
+				t.Fatalf("run(invalid budget) exit code = %d, want %d", code, exitUsage)
+			}
+			if !strings.Contains(stderr.String(), tt.want) {
+				t.Fatalf("stderr = %q, want %q", stderr.String(), tt.want)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+		})
 	}
 }
 
