@@ -92,6 +92,7 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 .\scripts\wjx-http-dryrun-stress-matrix.ps1 -SkipFull
 .\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -Json
 .\scripts\verify-local.ps1
+.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress
 ```
 
 mock 压测预算也可以直接走 CLI，例如：

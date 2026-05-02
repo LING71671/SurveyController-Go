@@ -1,5 +1,6 @@
 param(
     [switch]$IncludeFullStress,
+    [switch]$IncludeWJXHTTPDryRunStress,
     [switch]$SkipStaticcheck,
     [switch]$SkipStress
 )
@@ -36,6 +37,18 @@ try {
             $stressArgs += "-SkipFull"
         }
         & powershell -ExecutionPolicy Bypass -File scripts/mock-stress-matrix.ps1 @stressArgs
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    }
+
+    if ($IncludeWJXHTTPDryRunStress) {
+        Write-Host "== wjx http dry-run stress matrix =="
+        $wjxStressArgs = @()
+        if (-not $IncludeFullStress) {
+            $wjxStressArgs += "-SkipFull"
+        }
+        & powershell -ExecutionPolicy Bypass -File scripts/wjx-http-dryrun-stress-matrix.ps1 @wjxStressArgs
         if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
         }

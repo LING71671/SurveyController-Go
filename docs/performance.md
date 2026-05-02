@@ -59,6 +59,13 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 .\scripts\verify-local.ps1 -IncludeFullStress
 ```
 
+要同时包含 WJX HTTP dry-run matrix：
+
+```powershell
+.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress
+.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress -IncludeFullStress
+```
+
 ## JSON 汇总
 
 脚本可输出单个 JSON 汇总，方便后续 CI 或轻量 GUI 读取：
