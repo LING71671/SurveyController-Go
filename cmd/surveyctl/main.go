@@ -33,7 +33,7 @@ Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
-  surveyctl run --wjx-http-dry-run [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
+  surveyctl run --wjx-http-dry-run [path] --fixture <html> [--json] [--seed <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -59,7 +59,7 @@ const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
-  surveyctl run --wjx-http-dry-run [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
+  surveyctl run --wjx-http-dry-run [path] --fixture <html> [--json] [--seed <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>]
 `
 
 const (
@@ -428,8 +428,8 @@ func runRun(args []string, stdout io.Writer) error {
 	if modeCount == 0 {
 		return usageError("run requires --dry-run, --mock, --wjx-http-preview, or --wjx-http-dry-run", runUsage)
 	}
-	if !mockRun && eventFormat != "" {
-		return usageError("run --events requires --mock", runUsage)
+	if !mockRun && !wjxHTTPDryRun && eventFormat != "" {
+		return usageError("run --events requires --mock or --wjx-http-dry-run", runUsage)
 	}
 	if jsonOutput && eventFormat != "" {
 		return usageError("run --events cannot be combined with --json summary output", runUsage)
@@ -488,10 +488,24 @@ func runRun(args []string, stdout io.Writer) error {
 		if err != nil {
 			return commandError(exitFailure, fmt.Sprintf("run wjx http dry-run failed: %v", err), "")
 		}
-		result, err := app.RunWJXHTTPDryRun(contextBackground(), plan, app.WJXHTTPRunOptions{
+		var finishEvents func() (int, error)
+		options := app.WJXHTTPRunOptions{
 			Seed:   seed,
 			Survey: survey,
-		})
+		}
+		if eventFormat != "" {
+			options.Events, finishEvents = startRunEventStream(stdout, eventFormat, runEventBufferSize(plan))
+		}
+		result, err := app.RunWJXHTTPDryRun(contextBackground(), plan, options)
+		if finishEvents != nil {
+			eventCount, eventErr := finishEvents()
+			if err == nil && eventErr != nil {
+				err = eventErr
+			}
+			if err == nil {
+				fmt.Fprintf(stdout, "events: %d\n", eventCount)
+			}
+		}
 		if err != nil {
 			return commandError(exitFailure, fmt.Sprintf("run wjx http dry-run failed: %v", err), "")
 		}
