@@ -39,6 +39,26 @@ func TestHTTPSubmissionPipelineSubmitSuccess(t *testing.T) {
 	}
 }
 
+func TestHTTPSubmissionPipelineAcceptsDryRunExecutor(t *testing.T) {
+	executor := &DryRunHTTPSubmissionExecutor{}
+	pipeline, err := testHTTPSubmissionPipeline(executor, provider.Capabilities{SubmitHTTP: true})
+	if err != nil {
+		t.Fatalf("NewHTTPSubmissionPipeline() returned error: %v", err)
+	}
+
+	result, err := pipeline.Submit(context.Background(), testPipelineAnswerPlan())
+	if err != nil {
+		t.Fatalf("Submit() returned error: %v", err)
+	}
+
+	if !result.Success || result.State != provider.SubmissionStateSuccess {
+		t.Fatalf("Submit() = %+v, want successful dry-run result", result)
+	}
+	if drafts := executor.Drafts(); len(drafts) != 1 || drafts[0].Form.Get("q1") != "2" {
+		t.Fatalf("dry-run drafts = %+v, want recorded mapped draft", drafts)
+	}
+}
+
 func TestHTTPSubmissionPipelineRequiresSubmitCapability(t *testing.T) {
 	executor := &pipelineRecordingExecutor{
 		response: HTTPSubmissionResponse{StatusCode: http.StatusOK, Body: "提交成功"},

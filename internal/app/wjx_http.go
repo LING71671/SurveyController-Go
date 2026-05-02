@@ -18,6 +18,32 @@ type WJXHTTPRunOptions struct {
 	Survey   domain.SurveyDefinition
 }
 
+type WJXHTTPDryRunResult struct {
+	Report runner.RunPlanReport       `json:"report"`
+	Drafts []WJXHTTPSubmissionPreview `json:"drafts"`
+}
+
+func RunWJXHTTPDryRun(ctx context.Context, plan runner.Plan, options WJXHTTPRunOptions) (WJXHTTPDryRunResult, error) {
+	if err := validateWJXHTTPPlanCompatibility(plan, options.Survey, "dry-run"); err != nil {
+		return WJXHTTPDryRunResult{}, err
+	}
+
+	executor := &wjx.DryRunHTTPSubmissionExecutor{}
+	report, err := RunWJXHTTPPlan(ctx, plan, WJXHTTPRunOptions{
+		Seed:     options.Seed,
+		Events:   options.Events,
+		Executor: executor,
+		Survey:   options.Survey,
+	})
+	if err != nil {
+		return WJXHTTPDryRunResult{}, err
+	}
+	return WJXHTTPDryRunResult{
+		Report: report,
+		Drafts: previewsFromWJXHTTPDrafts(plan, executor.Drafts()),
+	}, nil
+}
+
 func RunWJXHTTPPlan(ctx context.Context, plan runner.Plan, options WJXHTTPRunOptions) (runner.RunPlanReport, error) {
 	if strings.TrimSpace(plan.Provider) != domain.ProviderWJX.String() {
 		return runner.RunPlanReport{}, fmt.Errorf("wjx http run requires wjx provider")
@@ -34,4 +60,28 @@ func RunWJXHTTPPlan(ctx context.Context, plan runner.Plan, options WJXHTTPRunOpt
 		return runner.RunPlanReport{}, err
 	}
 	return runPlanWithSubmitter(ctx, plan, options.Seed, pipeline, options.Events)
+}
+
+func previewsFromWJXHTTPDrafts(plan runner.Plan, drafts []wjx.HTTPSubmissionDraft) []WJXHTTPSubmissionPreview {
+	if len(drafts) == 0 {
+		return nil
+	}
+	previews := make([]WJXHTTPSubmissionPreview, 0, len(drafts))
+	for _, draft := range drafts {
+		previews = append(previews, previewFromWJXHTTPDraft(plan, draft, wjxHTTPDraftAnswerCount(draft)))
+	}
+	return previews
+}
+
+func wjxHTTPDraftAnswerCount(draft wjx.HTTPSubmissionDraft) int {
+	count := 0
+	for key := range draft.Form {
+		switch strings.TrimSpace(key) {
+		case "", "curID", "submittype":
+			continue
+		default:
+			count++
+		}
+	}
+	return count
 }
