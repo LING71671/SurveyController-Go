@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
-	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 var benchmarkHTTPPathState provider.SubmissionState

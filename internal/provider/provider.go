@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
 )
 
 type SurveyDefinition = domain.SurveyDefinition

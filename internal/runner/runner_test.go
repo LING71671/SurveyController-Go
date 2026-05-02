@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/config"
-	"github.com/LING71671/SurveyController-go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/config"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
 )
 
 func TestCompilePlan(t *testing.T) {

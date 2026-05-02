@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/answer"
-	"github.com/LING71671/SurveyController-go/internal/config"
-	"github.com/LING71671/SurveyController-go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/answer"
+	"github.com/LING71671/SurveyController-Go/internal/config"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
 )
 
 type Plan struct {

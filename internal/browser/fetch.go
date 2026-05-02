@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LING71671/SurveyController-go/internal/apperr"
+	"github.com/LING71671/SurveyController-Go/internal/apperr"
 )
 
 func FetchHTML(ctx context.Context, pool BrowserPool, rawURL string, options SessionOptions) (string, error) {

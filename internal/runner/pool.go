@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/LING71671/SurveyController-go/internal/engine"
-	"github.com/LING71671/SurveyController-go/internal/logging"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/logging"
 )
 
 type Task func(ctx context.Context, workerID int) error

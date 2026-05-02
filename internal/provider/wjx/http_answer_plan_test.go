@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
-	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
 )
 
 func TestBuildHTTPAnswers(t *testing.T) {

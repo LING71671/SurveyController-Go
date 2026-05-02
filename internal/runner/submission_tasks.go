@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
-	"github.com/LING71671/SurveyController-go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
 )
 
 type AnswerPlanSubmitter = engine.AnswerPlanSubmitter

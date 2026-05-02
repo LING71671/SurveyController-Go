@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/apperr"
-	"github.com/LING71671/SurveyController-go/internal/browser"
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/apperr"
+	"github.com/LING71671/SurveyController-Go/internal/browser"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 func TestDetectSubmissionUsesDetector(t *testing.T) {

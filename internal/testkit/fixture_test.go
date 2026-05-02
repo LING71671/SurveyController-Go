@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
 )
 
 func TestLoadSurveyFixture(t *testing.T) {

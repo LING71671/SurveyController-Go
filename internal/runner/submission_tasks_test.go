@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/answer"
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
-	"github.com/LING71671/SurveyController-go/internal/engine"
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/answer"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 func TestSubmissionTasksFromAnswerPlans(t *testing.T) {

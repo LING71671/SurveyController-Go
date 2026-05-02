@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
 )
 
 func FromSurveyDefinition(survey domain.SurveyDefinition) (RunConfig, error) {

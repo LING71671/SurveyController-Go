@@ -1,10 +1,10 @@
 package runner
 
 import (
-	"github.com/LING71671/SurveyController-go/internal/apperr"
-	"github.com/LING71671/SurveyController-go/internal/engine"
-	"github.com/LING71671/SurveyController-go/internal/logging"
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/apperr"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/logging"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 func (s *RunState) RecordSubmissionResult(workerID int, result engine.SubmissionResult) {

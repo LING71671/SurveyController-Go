@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/provider/credamo"
-	"github.com/LING71671/SurveyController-go/internal/provider/tencent"
-	"github.com/LING71671/SurveyController-go/internal/provider/wjx"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/provider/credamo"
+	"github.com/LING71671/SurveyController-Go/internal/provider/tencent"
+	"github.com/LING71671/SurveyController-Go/internal/provider/wjx"
 )
 
 func TestParserFixturesProduceStandardSurveys(t *testing.T) {

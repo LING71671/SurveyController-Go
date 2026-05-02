@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LING71671/SurveyController-go/internal/apperr"
+	"github.com/LING71671/SurveyController-Go/internal/apperr"
 )
 
 func TestFetchHTMLNavigatesReadsAndClosesSession(t *testing.T) {

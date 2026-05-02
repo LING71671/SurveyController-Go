@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/apperr"
-	"github.com/LING71671/SurveyController-go/internal/browser"
+	"github.com/LING71671/SurveyController-Go/internal/apperr"
+	"github.com/LING71671/SurveyController-Go/internal/browser"
 )
 
 func TestSubmissionStateTerminal(t *testing.T) {
