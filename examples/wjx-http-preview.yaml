@@ -1,0 +1,15 @@
+schema_version: 1
+survey:
+  url: "https://www.wjx.cn/vm/example.aspx"
+  provider: "wjx"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: q1_a
+          weight: 1

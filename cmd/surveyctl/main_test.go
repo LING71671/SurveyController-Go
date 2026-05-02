@@ -428,6 +428,68 @@ questions:
 	}
 }
 
+func TestRunWJXHTTPPreviewPrintsSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, wjxPreviewConfig())
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"run", "--wjx-http-preview", "--fixture", fixture, "--seed", "7", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(wjx http preview) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"wjx http preview:", "provider: wjx", "mode: http", "method: POST", "endpoint: https://www.wjx.cn/joinnew/processjq.ashx", "survey_id: example", "q1: browser", "network: disabled (preview)"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunWJXHTTPPreviewJSONPrintsSummary(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := writeConfig(t, wjxPreviewConfig())
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"run", "--wjx-http-preview", "--fixture", fixture, "--json", path}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(wjx http preview json) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	var summary map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &summary); err != nil {
+		t.Fatalf("json output decode failed: %v; output=%q", err, stdout.String())
+	}
+	if summary["provider"] != "wjx" || summary["method"] != "POST" || summary["network"] != "disabled (preview)" {
+		t.Fatalf("summary = %+v, want preview metadata", summary)
+	}
+	form := summary["form"].(map[string]any)
+	if values := form["q1"].([]any); values[0] != "browser" {
+		t.Fatalf("form = %+v, want q1 browser", form)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunWJXHTTPPreviewRequiresFixture(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"run", "--wjx-http-preview"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(wjx preview missing fixture) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "requires --fixture") {
+		t.Fatalf("stderr = %q, want fixture requirement", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
 func TestRunMockRunBudgetPasses(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -557,6 +619,25 @@ func TestRunRejectsInvalidBudgetFlags(t *testing.T) {
 			}
 		})
 	}
+}
+
+func wjxPreviewConfig() string {
+	return `schema_version: 1
+survey:
+  url: "https://www.wjx.cn/vm/example.aspx"
+  provider: "wjx"
+run:
+  target: 1
+  concurrency: 1
+  mode: http
+questions:
+  - id: q1
+    kind: single
+    options:
+      weights:
+        - option_id: q1_a
+          weight: 1
+`
 }
 
 func TestRunRejectsInvalidTargetOverride(t *testing.T) {
@@ -850,7 +931,7 @@ func TestRunRequiresDryRun(t *testing.T) {
 	if code != exitUsage {
 		t.Fatalf("run(without dry-run) exit code = %d, want %d", code, exitUsage)
 	}
-	if !strings.Contains(stderr.String(), "requires --dry-run or --mock") {
+	if !strings.Contains(stderr.String(), "requires --dry-run, --mock, or --wjx-http-preview") {
 		t.Fatalf("stderr = %q, want run mode requirement", stderr.String())
 	}
 	if stdout.Len() != 0 {
