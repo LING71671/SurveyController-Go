@@ -50,11 +50,15 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --json
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --target 1000 --concurrency 1000 --json
 ```
 
 `--dry-run` 用于验证配置能否编译成运行计划；`--mock` 会实际经过答案计划生成、worker pool、运行状态和事件输出，但 submitter 是本地 mock，不访问任何平台。
 
 `--wjx-http-preview` 用于验证问卷星 answer plan 能否编译成 HTTP draft。它只读取本地 HTML fixture，不执行网络请求；输出中会明确标注 `network: disabled (preview)`。预览会校验配置计划和 fixture 的 provider、mode、URL、题目 ID、题型是否一致，避免把不匹配的配置误认为可提交路径。
+
+`--wjx-http-dry-run` 用于验证问卷星 HTTP 路径的完整本地执行闭环。它会经过 runner、worker pool、答案计划生成、HTTP pipeline 和本地 dry-run executor，输出成功数、完成数、吞吐、资源指标、draft 数量和首个 draft 详情；JSON 输出会包含完整 drafts。该命令仍然只使用本地 fixture，输出中会明确标注 `network: disabled (dry-run)`。
 
 `--target` 和 `--concurrency` 可以覆盖配置中的运行规模，用于本地压测和验证资源上限。覆盖后的计划仍会重新走 runner 校验，因此 `browser` 模式不会被临时参数放大到超过小池限制。
 

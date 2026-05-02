@@ -33,6 +33,7 @@ Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
+  surveyctl run --wjx-http-dry-run [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -58,6 +59,7 @@ const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
+  surveyctl run --wjx-http-dry-run [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
 `
 
 const (
@@ -266,11 +268,12 @@ func selectedRunModeCount(modes ...bool) int {
 
 func runRun(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return usageError("run requires --dry-run, --mock, or --wjx-http-preview", runUsage)
+		return usageError("run requires --dry-run, --mock, --wjx-http-preview, or --wjx-http-dry-run", runUsage)
 	}
 	dryRun := false
 	mockRun := false
 	wjxHTTPPreview := false
+	wjxHTTPDryRun := false
 	jsonOutput := false
 	eventFormat := logging.Format("")
 	overrides := app.RunPlanOverrides{}
@@ -296,6 +299,8 @@ func runRun(args []string, stdout io.Writer) error {
 			mockRun = true
 		case "--wjx-http-preview":
 			wjxHTTPPreview = true
+		case "--wjx-http-dry-run":
+			wjxHTTPDryRun = true
 		case "--json":
 			jsonOutput = true
 		case "--fixture":
@@ -416,12 +421,12 @@ func runRun(args []string, stdout io.Writer) error {
 			pathSet = true
 		}
 	}
-	modeCount := selectedRunModeCount(dryRun, mockRun, wjxHTTPPreview)
+	modeCount := selectedRunModeCount(dryRun, mockRun, wjxHTTPPreview, wjxHTTPDryRun)
 	if modeCount > 1 {
-		return usageError("run accepts only one of --dry-run, --mock, or --wjx-http-preview", runUsage)
+		return usageError("run accepts only one of --dry-run, --mock, --wjx-http-preview, or --wjx-http-dry-run", runUsage)
 	}
 	if modeCount == 0 {
-		return usageError("run requires --dry-run, --mock, or --wjx-http-preview", runUsage)
+		return usageError("run requires --dry-run, --mock, --wjx-http-preview, or --wjx-http-dry-run", runUsage)
 	}
 	if !mockRun && eventFormat != "" {
 		return usageError("run --events requires --mock", runUsage)
@@ -435,11 +440,14 @@ func runRun(args []string, stdout io.Writer) error {
 	if !mockRun && budgetSet {
 		return usageError("run budget flags require --mock", runUsage)
 	}
-	if !wjxHTTPPreview && strings.TrimSpace(fixturePath) != "" {
-		return usageError("run --fixture requires --wjx-http-preview", runUsage)
+	if !wjxHTTPPreview && !wjxHTTPDryRun && strings.TrimSpace(fixturePath) != "" {
+		return usageError("run --fixture requires --wjx-http-preview or --wjx-http-dry-run", runUsage)
 	}
 	if wjxHTTPPreview && strings.TrimSpace(fixturePath) == "" {
 		return usageError("run --wjx-http-preview requires --fixture", runUsage)
+	}
+	if wjxHTTPDryRun && strings.TrimSpace(fixturePath) == "" {
+		return usageError("run --wjx-http-dry-run requires --fixture", runUsage)
 	}
 
 	plan, err := app.CompileRunPlanFromFile(path, overrides)
@@ -447,6 +455,10 @@ func runRun(args []string, stdout io.Writer) error {
 		action := "dry-run"
 		if mockRun {
 			action = "mock"
+		} else if wjxHTTPPreview {
+			action = "wjx http preview"
+		} else if wjxHTTPDryRun {
+			action = "wjx http dry-run"
 		}
 		return commandError(exitFailure, fmt.Sprintf("run %s failed: %v", action, err), "")
 	}
@@ -470,6 +482,20 @@ func runRun(args []string, stdout io.Writer) error {
 			return commandError(exitFailure, fmt.Sprintf("run wjx http preview failed: %v", err), "")
 		}
 		return printWJXHTTPPreview(stdout, path, fixturePath, preview, jsonOutput)
+	}
+	if wjxHTTPDryRun {
+		survey, err := parseWJXFixture(fixturePath, plan.URL)
+		if err != nil {
+			return commandError(exitFailure, fmt.Sprintf("run wjx http dry-run failed: %v", err), "")
+		}
+		result, err := app.RunWJXHTTPDryRun(contextBackground(), plan, app.WJXHTTPRunOptions{
+			Seed:   seed,
+			Survey: survey,
+		})
+		if err != nil {
+			return commandError(exitFailure, fmt.Sprintf("run wjx http dry-run failed: %v", err), "")
+		}
+		return printWJXHTTPDryRun(stdout, path, fixturePath, result, seed, jsonOutput)
 	}
 	var finishEvents func() (int, error)
 	mockOptions := app.MockRunOptions{
@@ -677,6 +703,16 @@ type wjxHTTPPreviewSummary struct {
 	Network     string              `json:"network"`
 }
 
+type wjxHTTPDryRunSummary struct {
+	Path       string                         `json:"path"`
+	Fixture    string                         `json:"fixture"`
+	Seed       int64                          `json:"seed"`
+	Report     runner.RunPlanReport           `json:"report"`
+	DraftCount int                            `json:"draft_count"`
+	Drafts     []app.WJXHTTPSubmissionPreview `json:"drafts"`
+	Network    string                         `json:"network"`
+}
+
 func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput bool) error {
 	summary := dryRunPlanSummary{
 		Path:             path,
@@ -754,6 +790,62 @@ func printWJXHTTPPreview(stdout io.Writer, path string, fixture string, preview 
 	}
 	fmt.Fprintf(stdout, "  network: %s\n", summary.Network)
 	return nil
+}
+
+func printWJXHTTPDryRun(stdout io.Writer, path string, fixture string, result app.WJXHTTPDryRunResult, seed int64, jsonOutput bool) error {
+	summary := wjxHTTPDryRunSummary{
+		Path:       path,
+		Fixture:    fixture,
+		Seed:       seed,
+		Report:     result.Report,
+		DraftCount: len(result.Drafts),
+		Drafts:     result.Drafts,
+		Network:    "disabled (dry-run)",
+	}
+	if jsonOutput {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetEscapeHTML(false)
+		return encoder.Encode(summary)
+	}
+
+	fmt.Fprintln(stdout, "wjx http dry-run:")
+	fmt.Fprintf(stdout, "  path: %s\n", summary.Path)
+	fmt.Fprintf(stdout, "  fixture: %s\n", summary.Fixture)
+	fmt.Fprintf(stdout, "  provider: %s\n", summary.Report.Provider)
+	fmt.Fprintf(stdout, "  url: %s\n", summary.Report.URL)
+	fmt.Fprintf(stdout, "  mode: %s\n", summary.Report.Mode)
+	fmt.Fprintf(stdout, "  target: %d\n", summary.Report.Target)
+	fmt.Fprintf(stdout, "  concurrency: %d\n", summary.Report.Concurrency)
+	fmt.Fprintf(stdout, "  seed: %d\n", summary.Seed)
+	fmt.Fprintf(stdout, "  successes: %d\n", summary.Report.Successes)
+	fmt.Fprintf(stdout, "  failures: %d\n", summary.Report.Failures)
+	fmt.Fprintf(stdout, "  completed: %d\n", summary.Report.Completed)
+	fmt.Fprintf(stdout, "  completion_rate: %s\n", formatPercent(summary.Report.CompletionRate))
+	fmt.Fprintf(stdout, "  success_rate: %s\n", formatPercent(summary.Report.SuccessRate))
+	fmt.Fprintf(stdout, "  duration_ms: %d\n", summary.Report.DurationMS)
+	fmt.Fprintf(stdout, "  throughput_per_second: %.2f\n", summary.Report.ThroughputPerSec)
+	fmt.Fprintf(stdout, "  goroutines: %d\n", summary.Report.Goroutines)
+	fmt.Fprintf(stdout, "  heap_alloc_bytes: %d\n", summary.Report.HeapAllocBytes)
+	fmt.Fprintf(stdout, "  heap_alloc_delta_bytes: %d\n", summary.Report.HeapAllocDelta)
+	fmt.Fprintf(stdout, "  total_alloc_delta_bytes: %d\n", summary.Report.TotalAllocDelta)
+	fmt.Fprintf(stdout, "  draft_count: %d\n", summary.DraftCount)
+	if summary.DraftCount > 0 {
+		printWJXHTTPDraftPreview(stdout, summary.Drafts[0])
+	}
+	fmt.Fprintf(stdout, "  network: %s\n", summary.Network)
+	return nil
+}
+
+func printWJXHTTPDraftPreview(stdout io.Writer, draft app.WJXHTTPSubmissionPreview) {
+	fmt.Fprintln(stdout, "  first_draft:")
+	fmt.Fprintf(stdout, "    method: %s\n", draft.Method)
+	fmt.Fprintf(stdout, "    endpoint: %s\n", draft.Endpoint)
+	fmt.Fprintf(stdout, "    survey_id: %s\n", draft.SurveyID)
+	fmt.Fprintf(stdout, "    answer_count: %d\n", draft.AnswerCount)
+	fmt.Fprintln(stdout, "    form:")
+	for _, key := range sortedMapKeys(draft.Form) {
+		fmt.Fprintf(stdout, "      %s: %s\n", key, strings.Join(draft.Form[key], ","))
+	}
 }
 
 func printMockRunSummary(stdout io.Writer, path string, report runner.RunPlanReport, seed int64, jsonOutput bool) error {
