@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,7 @@ Usage:
   surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
+  surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
   surveyctl doctor [browser]
   surveyctl help
 
@@ -55,6 +57,7 @@ const doctorUsage = `Usage:
 const runUsage = `Usage:
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
+  surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
 `
 
 const (
@@ -234,6 +237,15 @@ func generateConfigFromFixture(providerID string, fixturePath string, rawURL str
 	return config.FromSurveyDefinition(survey)
 }
 
+func parseWJXFixture(fixturePath string, rawURL string) (domain.SurveyDefinition, error) {
+	file, err := os.Open(fixturePath)
+	if err != nil {
+		return domain.SurveyDefinition{}, fmt.Errorf("open fixture %q: %w", fixturePath, err)
+	}
+	defer file.Close()
+	return wjx.ParseHTML(file, rawURL)
+}
+
 func readFlagValue(args []string, index int, flag string) (string, int, error) {
 	next := index + 1
 	if next >= len(args) || strings.TrimSpace(args[next]) == "" {
@@ -242,12 +254,23 @@ func readFlagValue(args []string, index int, flag string) (string, int, error) {
 	return args[next], next, nil
 }
 
+func selectedRunModeCount(modes ...bool) int {
+	count := 0
+	for _, enabled := range modes {
+		if enabled {
+			count++
+		}
+	}
+	return count
+}
+
 func runRun(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return usageError("run requires --dry-run or --mock", runUsage)
+		return usageError("run requires --dry-run, --mock, or --wjx-http-preview", runUsage)
 	}
 	dryRun := false
 	mockRun := false
+	wjxHTTPPreview := false
 	jsonOutput := false
 	eventFormat := logging.Format("")
 	overrides := app.RunPlanOverrides{}
@@ -255,6 +278,7 @@ func runRun(args []string, stdout io.Writer) error {
 	budgetSet := false
 	mockFailEvery := 0
 	seed := int64(1)
+	fixturePath := ""
 	path := "survey.yaml"
 	pathSet := false
 	for i := 0; i < len(args); i++ {
@@ -270,8 +294,17 @@ func runRun(args []string, stdout io.Writer) error {
 			dryRun = true
 		case "--mock":
 			mockRun = true
+		case "--wjx-http-preview":
+			wjxHTTPPreview = true
 		case "--json":
 			jsonOutput = true
+		case "--fixture":
+			value, next, err := readRunFlagValue(args, i, "--fixture")
+			if err != nil {
+				return err
+			}
+			fixturePath = value
+			i = next
 		case "--target":
 			value, next, err := readRunFlagValue(args, i, "--target")
 			if err != nil {
@@ -383,23 +416,30 @@ func runRun(args []string, stdout io.Writer) error {
 			pathSet = true
 		}
 	}
-	if dryRun && mockRun {
-		return usageError("run accepts only one of --dry-run or --mock", runUsage)
+	modeCount := selectedRunModeCount(dryRun, mockRun, wjxHTTPPreview)
+	if modeCount > 1 {
+		return usageError("run accepts only one of --dry-run, --mock, or --wjx-http-preview", runUsage)
 	}
-	if !dryRun && !mockRun {
-		return usageError("run requires --dry-run or --mock", runUsage)
+	if modeCount == 0 {
+		return usageError("run requires --dry-run, --mock, or --wjx-http-preview", runUsage)
 	}
-	if dryRun && eventFormat != "" {
+	if !mockRun && eventFormat != "" {
 		return usageError("run --events requires --mock", runUsage)
 	}
 	if jsonOutput && eventFormat != "" {
 		return usageError("run --events cannot be combined with --json summary output", runUsage)
 	}
-	if dryRun && mockFailEvery > 0 {
+	if !mockRun && mockFailEvery > 0 {
 		return usageError("run --mock-fail-every requires --mock", runUsage)
 	}
-	if dryRun && budgetSet {
+	if !mockRun && budgetSet {
 		return usageError("run budget flags require --mock", runUsage)
+	}
+	if !wjxHTTPPreview && strings.TrimSpace(fixturePath) != "" {
+		return usageError("run --fixture requires --wjx-http-preview", runUsage)
+	}
+	if wjxHTTPPreview && strings.TrimSpace(fixturePath) == "" {
+		return usageError("run --wjx-http-preview requires --fixture", runUsage)
 	}
 
 	plan, err := app.CompileRunPlanFromFile(path, overrides)
@@ -416,6 +456,20 @@ func runRun(args []string, stdout io.Writer) error {
 			return err
 		}
 		return nil
+	}
+	if wjxHTTPPreview {
+		survey, err := parseWJXFixture(fixturePath, plan.URL)
+		if err != nil {
+			return commandError(exitFailure, fmt.Sprintf("run wjx http preview failed: %v", err), "")
+		}
+		preview, err := app.PreviewWJXHTTPSubmission(plan, app.WJXHTTPPreviewOptions{
+			Seed:   seed,
+			Survey: survey,
+		})
+		if err != nil {
+			return commandError(exitFailure, fmt.Sprintf("run wjx http preview failed: %v", err), "")
+		}
+		return printWJXHTTPPreview(stdout, path, fixturePath, preview, jsonOutput)
 	}
 	var finishEvents func() (int, error)
 	mockOptions := app.MockRunOptions{
@@ -609,6 +663,20 @@ type mockRunSummary struct {
 	WorkerCount       int     `json:"worker_count"`
 }
 
+type wjxHTTPPreviewSummary struct {
+	Path        string              `json:"path"`
+	Fixture     string              `json:"fixture"`
+	Provider    string              `json:"provider"`
+	Mode        string              `json:"mode"`
+	Method      string              `json:"method"`
+	Endpoint    string              `json:"endpoint"`
+	SurveyID    string              `json:"survey_id"`
+	Header      map[string][]string `json:"header"`
+	Form        map[string][]string `json:"form"`
+	AnswerCount int                 `json:"answer_count"`
+	Network     string              `json:"network"`
+}
+
 func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput bool) error {
 	summary := dryRunPlanSummary{
 		Path:             path,
@@ -645,6 +713,46 @@ func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput
 	fmt.Fprintf(stdout, "  reverse_fill_enabled: %t\n", summary.ReverseFill)
 	fmt.Fprintf(stdout, "  random_ua_enabled: %t\n", summary.RandomUA)
 	fmt.Fprintln(stdout, "  submissions: 0 (dry run)")
+	return nil
+}
+
+func printWJXHTTPPreview(stdout io.Writer, path string, fixture string, preview app.WJXHTTPSubmissionPreview, jsonOutput bool) error {
+	summary := wjxHTTPPreviewSummary{
+		Path:        path,
+		Fixture:     fixture,
+		Provider:    preview.Provider,
+		Mode:        preview.Mode,
+		Method:      preview.Method,
+		Endpoint:    preview.Endpoint,
+		SurveyID:    preview.SurveyID,
+		Header:      preview.Header,
+		Form:        preview.Form,
+		AnswerCount: preview.AnswerCount,
+		Network:     "disabled (preview)",
+	}
+	if jsonOutput {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetEscapeHTML(false)
+		return encoder.Encode(summary)
+	}
+	fmt.Fprintln(stdout, "wjx http preview:")
+	fmt.Fprintf(stdout, "  path: %s\n", summary.Path)
+	fmt.Fprintf(stdout, "  fixture: %s\n", summary.Fixture)
+	fmt.Fprintf(stdout, "  provider: %s\n", summary.Provider)
+	fmt.Fprintf(stdout, "  mode: %s\n", summary.Mode)
+	fmt.Fprintf(stdout, "  method: %s\n", summary.Method)
+	fmt.Fprintf(stdout, "  endpoint: %s\n", summary.Endpoint)
+	fmt.Fprintf(stdout, "  survey_id: %s\n", summary.SurveyID)
+	fmt.Fprintf(stdout, "  answer_count: %d\n", summary.AnswerCount)
+	fmt.Fprintln(stdout, "  headers:")
+	for _, key := range sortedMapKeys(summary.Header) {
+		fmt.Fprintf(stdout, "    %s: %s\n", key, strings.Join(summary.Header[key], ","))
+	}
+	fmt.Fprintln(stdout, "  form:")
+	for _, key := range sortedMapKeys(summary.Form) {
+		fmt.Fprintf(stdout, "    %s: %s\n", key, strings.Join(summary.Form[key], ","))
+	}
+	fmt.Fprintf(stdout, "  network: %s\n", summary.Network)
 	return nil
 }
 
@@ -707,6 +815,15 @@ func printMockRunSummary(stdout io.Writer, path string, report runner.RunPlanRep
 
 func formatPercent(ratio float64) string {
 	return fmt.Sprintf("%.2f%%", ratio*100)
+}
+
+func sortedMapKeys(values map[string][]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func parseDoctorBrowserArgs(args []string) (bool, error) {
