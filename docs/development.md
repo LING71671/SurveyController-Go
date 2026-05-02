@@ -31,6 +31,13 @@ gofmt -w (git ls-files '*.go')
 .\scripts\verify-local.ps1 -IncludeFullStress
 ```
 
+需要把问卷星 HTTP dry-run 矩阵也纳入本地验证时：
+
+```powershell
+.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress
+.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress -IncludeFullStress
+```
+
 如果只是快速检查 Go 代码、不跑压测：
 
 ```powershell
