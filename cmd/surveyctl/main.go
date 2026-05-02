@@ -437,8 +437,8 @@ func runRun(args []string, stdout io.Writer) error {
 	if !mockRun && mockFailEvery > 0 {
 		return usageError("run --mock-fail-every requires --mock", runUsage)
 	}
-	if !mockRun && budgetSet {
-		return usageError("run budget flags require --mock", runUsage)
+	if !mockRun && !wjxHTTPDryRun && budgetSet {
+		return usageError("run budget flags require --mock or --wjx-http-dry-run", runUsage)
 	}
 	if !wjxHTTPPreview && !wjxHTTPDryRun && strings.TrimSpace(fixturePath) != "" {
 		return usageError("run --fixture requires --wjx-http-preview or --wjx-http-dry-run", runUsage)
@@ -509,7 +509,15 @@ func runRun(args []string, stdout io.Writer) error {
 		if err != nil {
 			return commandError(exitFailure, fmt.Sprintf("run wjx http dry-run failed: %v", err), "")
 		}
-		return printWJXHTTPDryRun(stdout, path, fixturePath, result, seed, jsonOutput)
+		if err := printWJXHTTPDryRun(stdout, path, fixturePath, result, seed, jsonOutput); err != nil {
+			return err
+		}
+		if budgetSet {
+			if err := budget.Check(result.Report); err != nil {
+				return commandError(exitFailure, fmt.Sprintf("run wjx http dry-run budget failed: %v", err), "")
+			}
+		}
+		return nil
 	}
 	var finishEvents func() (int, error)
 	mockOptions := app.MockRunOptions{
