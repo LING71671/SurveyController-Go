@@ -68,6 +68,8 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 
 CI 使用 `-SkipGoChecks` 跑轻量 smoke，避免重复执行已经单独跑过的 Go 检查，同时覆盖本地验证脚本的编排逻辑。
 
+完整脚本说明见 [脚本参考](scripts.md)。
+
 ## JSON 汇总
 
 脚本可输出单个 JSON 汇总，方便后续 CI 或轻量 GUI 读取：

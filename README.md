@@ -148,5 +148,6 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 - [架构说明](docs/architecture.md)
 - [路线图](docs/roadmap.md)
 - [性能与压测](docs/performance.md)
+- [脚本参考](docs/scripts.md)
 - [原项目分析](docs/discovery/original-project-analysis.md)
 - [运行闭环对齐复盘](docs/discovery/original-runtime-alignment-2026-04-30.md)

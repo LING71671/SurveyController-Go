@@ -50,6 +50,8 @@ CI smoke 会复用同一个入口，但跳过已由 CI 前置步骤覆盖的 Go 
 .\scripts\verify-local.ps1 -SkipGoChecks -SkipStaticcheck -SkipStress -IncludeWJXHTTPDryRunStress
 ```
 
+完整脚本说明见 [脚本参考](scripts.md)。
+
 ## 运行预览
 
 `surveyctl run` 当前只开放不会访问网络的预览能力：
