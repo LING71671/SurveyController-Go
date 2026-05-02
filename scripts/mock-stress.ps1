@@ -29,12 +29,9 @@ if ($MinThroughput -lt 0) {
 if ($MaxGoroutines -lt 0) {
     throw "MaxGoroutines must not be negative."
 }
-$expectFailureThresholdValue = $null
-if ($ExpectFailureThreshold -ne "") {
-    $expectFailureThresholdValue = [bool]::Parse($ExpectFailureThreshold)
-}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$invariantCulture = [System.Globalization.CultureInfo]::InvariantCulture
 Push-Location $repoRoot
 try {
     $surveyctlArgs = @(
@@ -52,33 +49,39 @@ try {
     if ($FailEvery -gt 0) {
         $surveyctlArgs += @("--mock-fail-every", $FailEvery)
     }
+    if ($MinThroughput -gt 0) {
+        $surveyctlArgs += @("--min-throughput", $MinThroughput.ToString($invariantCulture))
+    }
+    if ($MaxHeapDelta -gt 0) {
+        $surveyctlArgs += @("--max-heap-delta", $MaxHeapDelta.ToString($invariantCulture))
+    }
+    if ($MaxGoroutines -gt 0) {
+        $surveyctlArgs += @("--max-goroutines", $MaxGoroutines)
+    }
+    if ($ExpectFailureThreshold -ne "") {
+        $surveyctlArgs += @("--expect-failure-threshold", $ExpectFailureThreshold)
+    }
     $surveyctlArgs += "--json"
 
     $raw = & go run ./cmd/surveyctl @surveyctlArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
-
-    $summary = $raw | ConvertFrom-Json
-    $failures = @()
-
-    if ($MinThroughput -gt 0 -and [double]$summary.throughput_per_second -lt $MinThroughput) {
-        $failures += "throughput_per_second $($summary.throughput_per_second) is below $MinThroughput"
-    }
-    if ($MaxHeapDelta -gt 0 -and [UInt64]$summary.heap_alloc_delta_bytes -gt $MaxHeapDelta) {
-        $failures += "heap_alloc_delta_bytes $($summary.heap_alloc_delta_bytes) is above $MaxHeapDelta"
-    }
-    if ($MaxGoroutines -gt 0 -and [int]$summary.goroutines -gt $MaxGoroutines) {
-        $failures += "goroutines $($summary.goroutines) is above $MaxGoroutines"
-    }
-    if ($null -ne $expectFailureThresholdValue -and [bool]$summary.failure_threshold_reached -ne $expectFailureThresholdValue) {
-        $failures += "failure_threshold_reached $($summary.failure_threshold_reached) does not match $expectFailureThresholdValue"
+    $exitCode = $LASTEXITCODE
+    $summary = $null
+    if ($raw) {
+        try {
+            $summary = $raw | ConvertFrom-Json
+        }
+        catch {
+            $raw
+            exit $exitCode
+        }
     }
 
     if ($Json) {
-        $raw
+        if ($raw) {
+            $raw
+        }
     }
-    else {
+    elseif ($null -ne $summary) {
         Write-Host "mock stress:"
         Write-Host "  target: $($summary.target)"
         Write-Host "  concurrency: $($summary.concurrency)"
@@ -91,12 +94,12 @@ try {
         Write-Host "  goroutines: $($summary.goroutines)"
         Write-Host "  failure_threshold_reached: $($summary.failure_threshold_reached)"
     }
+    elseif ($raw) {
+        $raw
+    }
 
-    if ($failures.Count -gt 0) {
-        foreach ($failure in $failures) {
-            Write-Error $failure
-        }
-        exit 1
+    if ($exitCode -ne 0) {
+        exit $exitCode
     }
     exit 0
 }
