@@ -71,7 +71,7 @@ JSON 汇总不要和 `--events jsonl` 混用。前者是最终报告，后者是
 
 ## 预算断言
 
-脚本支持轻量预算断言，适合本地提交前或后续 CI 使用：
+脚本支持轻量预算断言，适合本地提交前或后续 CI 使用。预算参数会透传给 `surveyctl run --mock`，由 CLI 基于同一份 `RunPlanReport` 统一判定；脚本只负责输出 JSON 或人类可读摘要：
 
 ```powershell
 .\scripts\mock-stress.ps1 -Target 1000 -Concurrency 1000 -MinThroughput 1000 -MaxGoroutines 1
@@ -84,7 +84,7 @@ JSON 汇总不要和 `--events jsonl` 混用。前者是最终报告，后者是
 - `-MaxGoroutines`：要求运行结束后的 goroutine 数不高于指定值。
 - `-ExpectFailureThreshold`：要求 `failure_threshold_reached` 等于指定布尔值。
 
-这些预算应先设得保守，主要用于抓明显退化。严苛性能门槛必须先在 CI 机器上积累基线。
+预算失败时 CLI 会先输出 mock run 报告，再以非零退出码返回失败原因。这样本地脚本、矩阵脚本和后续 CI 可以共享同一套判定语义。预算应先设得保守，主要用于抓明显退化；严苛性能门槛必须先在 CI 机器上积累基线。
 
 ## 失败注入
 

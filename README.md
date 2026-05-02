@@ -82,8 +82,15 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 ```powershell
 .\scripts\mock-stress.ps1
 .\scripts\mock-stress.ps1 -Json
+.\scripts\mock-stress.ps1 -MinThroughput 1 -MaxGoroutines 1
 .\scripts\mock-stress.ps1 -Target 5 -Concurrency 1 -FailEvery 2
 .\scripts\verify-local.ps1
+```
+
+mock 压测预算也可以直接走 CLI，例如：
+
+```powershell
+go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurrency 1000 --min-throughput 1 --max-goroutines 1
 ```
 
 需要观察运行事件时可加：
