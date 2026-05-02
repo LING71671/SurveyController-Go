@@ -48,9 +48,13 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 .\scripts\mock-stress.ps1
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events text
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
+go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --json
 ```
 
 `--dry-run` 用于验证配置能否编译成运行计划；`--mock` 会实际经过答案计划生成、worker pool、运行状态和事件输出，但 submitter 是本地 mock，不访问任何平台。
+
+`--wjx-http-preview` 用于验证问卷星 answer plan 能否编译成 HTTP draft。它只读取本地 HTML fixture，不执行网络请求；输出中会明确标注 `network: disabled (preview)`。预览会校验配置计划和 fixture 的 provider、mode、URL、题目 ID、题型是否一致，避免把不匹配的配置误认为可提交路径。
 
 `--target` 和 `--concurrency` 可以覆盖配置中的运行规模，用于本地压测和验证资源上限。覆盖后的计划仍会重新走 runner 校验，因此 `browser` 模式不会被临时参数放大到超过小池限制。
 
@@ -64,6 +68,8 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 - `--events` 不和 `--json` 同时使用，避免把事件流和单个 JSON 汇总混成不稳定协议。
 
 新增真实运行能力时，优先复用 runner 层的 `RunPlanReport` 和 logging 事件类型。CLI、CI、脚本和后续轻量 GUI 都应订阅同一套 core 事件，不要为 UI 单独分叉业务状态。
+
+真实网络开关进入 CLI 前，必须先具备对应 provider 的本地 preview、fixture 回归、能力门控和停止态检测。预览命令不是提交命令，不能偷偷执行 HTTP 请求。
 
 ## 性能习惯
 
