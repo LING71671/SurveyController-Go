@@ -6,9 +6,9 @@ import (
 	"math/rand"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/answer"
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
-	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/answer"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
 )
 
 type AnswerPlanBuilder struct {

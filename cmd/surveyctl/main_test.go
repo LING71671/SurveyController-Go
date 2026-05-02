@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/config"
+	"github.com/LING71671/SurveyController-Go/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

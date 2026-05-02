@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LING71671/SurveyController-go/internal/config"
-	"github.com/LING71671/SurveyController-go/internal/logging"
-	"github.com/LING71671/SurveyController-go/internal/provider/builtin"
-	"github.com/LING71671/SurveyController-go/internal/runner"
+	"github.com/LING71671/SurveyController-Go/internal/config"
+	"github.com/LING71671/SurveyController-Go/internal/logging"
+	"github.com/LING71671/SurveyController-Go/internal/provider/builtin"
+	"github.com/LING71671/SurveyController-Go/internal/runner"
 )
 
 type RunPlanOverrides struct {

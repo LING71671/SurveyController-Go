@@ -1,10 +1,10 @@
 package builtin
 
 import (
-	"github.com/LING71671/SurveyController-go/internal/provider"
-	"github.com/LING71671/SurveyController-go/internal/provider/credamo"
-	"github.com/LING71671/SurveyController-go/internal/provider/tencent"
-	"github.com/LING71671/SurveyController-go/internal/provider/wjx"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/provider/credamo"
+	"github.com/LING71671/SurveyController-Go/internal/provider/tencent"
+	"github.com/LING71671/SurveyController-Go/internal/provider/wjx"
 )
 
 func NewRegistry() (*provider.Registry, error) {

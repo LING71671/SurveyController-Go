@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/answer"
+	"github.com/LING71671/SurveyController-Go/internal/answer"
 )
 
 func QuestionOptionWeights(question QuestionConfig) ([]answer.OptionWeight, error) {

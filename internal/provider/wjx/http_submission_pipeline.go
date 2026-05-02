@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
-	"github.com/LING71671/SurveyController-go/internal/engine"
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 type HTTPSubmissionPipeline struct {

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LING71671/SurveyController-go/internal/apperr"
-	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/httpclient"
+	"github.com/LING71671/SurveyController-Go/internal/apperr"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/httpclient"
 )
 
 var (

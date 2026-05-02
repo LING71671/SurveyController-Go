@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/browser"
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/browser"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 type SubmissionResult struct {

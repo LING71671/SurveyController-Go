@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
 )
 
 func TestFromSurveyDefinitionBuildsDefaultRunConfig(t *testing.T) {

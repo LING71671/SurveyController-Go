@@ -1,4 +1,4 @@
-module github.com/LING71671/SurveyController-go
+module github.com/LING71671/SurveyController-Go
 
 go 1.26
 

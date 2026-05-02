@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LING71671/SurveyController-go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
 )
 
 func TestNewRunPlanReportSummarizesSnapshot(t *testing.T) {

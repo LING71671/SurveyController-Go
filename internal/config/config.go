@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/LING71671/SurveyController-go/internal/engine"
+	"github.com/LING71671/SurveyController-Go/internal/engine"
 	"gopkg.in/yaml.v3"
 )
 

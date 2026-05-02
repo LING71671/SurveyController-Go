@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/provider"
+	"github.com/LING71671/SurveyController-Go/internal/provider"
 )
 
 func TestDetectHTTPSubmissionResponse(t *testing.T) {

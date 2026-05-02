@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/answer"
+	"github.com/LING71671/SurveyController-Go/internal/answer"
 )
 
 func TestBuildAnswerPlan(t *testing.T) {

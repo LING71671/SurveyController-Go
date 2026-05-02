@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
 )
 
 func LoadSurveyFixture(t testing.TB, path string) domain.SurveyDefinition {

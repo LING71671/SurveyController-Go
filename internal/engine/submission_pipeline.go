@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/LING71671/SurveyController-go/internal/answerplan"
+	"github.com/LING71671/SurveyController-Go/internal/answerplan"
 )
 
 type AnswerPlanSubmitter interface {

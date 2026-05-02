@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LING71671/SurveyController-go/internal/domain"
-	"github.com/LING71671/SurveyController-go/internal/provider/wjx"
-	"github.com/LING71671/SurveyController-go/internal/runner"
+	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/provider/wjx"
+	"github.com/LING71671/SurveyController-Go/internal/runner"
 )
 
 func TestRunWJXHTTPPlanSubmitsThroughPipeline(t *testing.T) {
