@@ -52,7 +52,7 @@ func RunPlanSubmissions(ctx context.Context, plan Plan, options RunPlanOptions) 
 		taskPlan := answerPlan
 		return func(ctx context.Context, workerID int) (engine.SubmissionResult, error) {
 			_ = workerID
-			return options.Submitter.Submit(ctx, taskPlan)
+			return engine.SubmitAnswerPlan(ctx, options.Submitter, taskPlan)
 		}, nil
 	})
 }
