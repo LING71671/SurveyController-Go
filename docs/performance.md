@@ -39,12 +39,30 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 
 JSON 汇总不要和 `--events jsonl` 混用。前者是最终报告，后者是事件流。
 
+## 预算断言
+
+脚本支持轻量预算断言，适合本地提交前或后续 CI 使用：
+
+```powershell
+.\scripts\mock-stress.ps1 -Target 1000 -Concurrency 1000 -MinThroughput 1000 -MaxGoroutines 1
+```
+
+可用预算包括：
+
+- `-MinThroughput`：要求 `throughput_per_second` 不低于指定值。
+- `-MaxHeapDelta`：要求 `heap_alloc_delta_bytes` 不高于指定值。
+- `-MaxGoroutines`：要求运行结束后的 goroutine 数不高于指定值。
+- `-ExpectFailureThreshold`：要求 `failure_threshold_reached` 等于指定布尔值。
+
+这些预算应先设得保守，主要用于抓明显退化。严苛性能门槛必须先在 CI 机器上积累基线。
+
 ## 失败注入
 
 可以用失败注入验证失败阈值和停止行为：
 
 ```powershell
 .\scripts\mock-stress.ps1 -Target 5 -Concurrency 1 -FailEvery 2
+.\scripts\mock-stress.ps1 -Target 5 -Concurrency 1 -FailEvery 2 -ExpectFailureThreshold true
 ```
 
 预期会在第二次 mock submission 失败后触发 `failure_threshold_reached: true`。这仍然是本地 mock，不访问网络。
