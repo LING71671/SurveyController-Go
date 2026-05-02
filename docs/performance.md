@@ -115,6 +115,8 @@ WJX HTTP dry-run 支持和 mock run 相同的预算参数。预算失败时 CLI 
 
 矩阵脚本会复用单 profile 脚本，默认包含 smoke、预算和 1000x1000 profile；`-SkipFull` 只跑轻量 profile，适合本地快速回归。
 
+CI 会执行 `.\scripts\wjx-http-dryrun-stress-matrix.ps1 -SkipFull` 作为脚本 smoke。完整 1000x1000 profile 不放进默认 CI，避免把每个 PR 的必跑路径变重；发布前或性能专项验证时再显式运行完整 profile。
+
 ## 预算断言
 
 脚本支持轻量预算断言，适合本地提交前或后续 CI 使用。预算参数会透传给 `surveyctl run --mock`，由 CLI 基于同一份 `RunPlanReport` 统一判定；脚本只负责输出 JSON 或人类可读摘要：

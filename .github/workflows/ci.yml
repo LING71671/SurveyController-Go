@@ -46,6 +46,10 @@ jobs:
       - name: 运行 staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
 
+      - name: 运行 WJX HTTP dry-run smoke
+        shell: pwsh
+        run: ./scripts/wjx-http-dryrun-stress-matrix.ps1 -SkipFull
+
   race:
     name: 竞态检查
     runs-on: ubuntu-latest

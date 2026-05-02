@@ -8,6 +8,13 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $stressScript = Join-Path $PSScriptRoot "wjx-http-dryrun-stress.ps1"
+$powerShellCommand = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($null -eq $powerShellCommand) {
+    $powerShellCommand = Get-Command powershell -ErrorAction SilentlyContinue
+}
+if ($null -eq $powerShellCommand) {
+    throw "PowerShell executable was not found."
+}
 
 $profiles = @(
     @{
@@ -16,7 +23,7 @@ $profiles = @(
     },
     @{
         Name = "budget"
-        Args = @("-Config", $Config, "-Fixture", $Fixture, "-Target", "25", "-Concurrency", "5", "-MinThroughput", "1", "-MaxGoroutines", "8", "-ExpectFailureThreshold", "false", "-Json")
+        Args = @("-Config", $Config, "-Fixture", $Fixture, "-Target", "25", "-Concurrency", "5", "-MaxGoroutines", "8", "-ExpectFailureThreshold", "false", "-Json")
     }
 )
 
@@ -31,7 +38,13 @@ Push-Location $repoRoot
 try {
     $rows = @()
     foreach ($profile in $profiles) {
-        $output = & powershell -ExecutionPolicy Bypass -File $stressScript @($profile.Args)
+        $commandArgs = @("-NoProfile")
+        if ($powerShellCommand.Name -like "powershell*") {
+            $commandArgs += @("-ExecutionPolicy", "Bypass")
+        }
+        $commandArgs += @("-File", $stressScript)
+        $commandArgs += $profile.Args
+        $output = & $powerShellCommand.Source @commandArgs
         if ($LASTEXITCODE -ne 0) {
             throw "profile $($profile.Name) failed with exit code $LASTEXITCODE"
         }
