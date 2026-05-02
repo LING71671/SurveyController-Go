@@ -13,3 +13,21 @@ questions:
       weights:
         - option_id: q1_a
           weight: 1
+  - id: q2
+    kind: multiple
+    options:
+      min_selected: 2
+      max_selected: 2
+      weights:
+        - option_id: q2_a
+          weight: 1
+        - option_id: q2_b
+          weight: 1
+        - option_id: q2_c
+          weight: 0
+  - id: q4
+    kind: rating
+    options:
+      weights:
+        - option_id: q4_5
+          weight: 1
