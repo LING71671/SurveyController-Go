@@ -11,6 +11,7 @@
 
 ```powershell
 go run ./cmd/surveyctl version
+go run ./cmd/surveyctl link extract --text "https://www.wjx.cn/vm/example.aspx"
 go test ./...
 go test -race ./...
 go vet ./...
@@ -51,6 +52,17 @@ CI smoke 会复用同一个入口，但跳过已由 CI 前置步骤覆盖的 Go 
 ```
 
 完整脚本说明见 [脚本参考](scripts.md)。
+
+## 本地链接预检
+
+`surveyctl link extract` 用于从粘贴文本、已解码二维码文本或本地文件中提取支持的平台链接，并通过 provider matcher 返回平台 ID。该命令只做本地文本处理，不访问网络，也不做图片二维码解码：
+
+```powershell
+go run ./cmd/surveyctl link extract --text "扫码 https://www.wjx.cn/vm/example.aspx"
+go run ./cmd/surveyctl link extract .\example-survey\qr.txt --json
+```
+
+这一步适合作为配置生成前的轻量预检。后续如果要支持图片二维码，应作为可选能力进入，不影响 core 的纯文本路径。
 
 ## 运行预览
 

@@ -15,6 +15,7 @@ import (
 	"github.com/LING71671/SurveyController-Go/internal/config"
 	"github.com/LING71671/SurveyController-Go/internal/doctor"
 	"github.com/LING71671/SurveyController-Go/internal/domain"
+	"github.com/LING71671/SurveyController-Go/internal/linkextract"
 	"github.com/LING71671/SurveyController-Go/internal/logging"
 	"github.com/LING71671/SurveyController-Go/internal/provider/credamo"
 	"github.com/LING71671/SurveyController-Go/internal/provider/tencent"
@@ -28,6 +29,7 @@ const usage = `surveyctl is the SurveyController-go command line tool.
 
 Usage:
   surveyctl version
+  surveyctl link extract [path] [--text <value>] [--json]
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
@@ -39,6 +41,7 @@ Usage:
 
 Commands:
   version          Print build version
+  link extract     Extract supported survey links from local text
   config validate  Validate a run configuration file
   config generate  Generate a run configuration from a local fixture
   run              Compile and preview a run plan
@@ -49,6 +52,10 @@ Commands:
 const configUsage = `Usage:
   surveyctl config validate [path]
   surveyctl config generate --provider <id> --fixture <path> --url <url>
+`
+
+const linkUsage = `Usage:
+  surveyctl link extract [path] [--text <value>] [--json]
 `
 
 const doctorUsage = `Usage:
@@ -112,6 +119,8 @@ func execute(args []string, stdout io.Writer) error {
 	case "version", "-v", "--version":
 		fmt.Fprintln(stdout, version.Info().String())
 		return nil
+	case "link":
+		return runLink(args[1:], stdout)
 	case "config":
 		return runConfig(args[1:], stdout)
 	case "run":
@@ -121,6 +130,85 @@ func execute(args []string, stdout io.Writer) error {
 	default:
 		return usageError(fmt.Sprintf("unknown command %q", args[0]), usage)
 	}
+}
+
+func runLink(args []string, stdout io.Writer) error {
+	if len(args) == 0 {
+		return usageError("missing link command", linkUsage)
+	}
+	switch strings.ToLower(strings.TrimSpace(args[0])) {
+	case "help", "-h", "--help":
+		fmt.Fprint(stdout, linkUsage)
+		return nil
+	case "extract":
+		return runLinkExtract(args[1:], stdout)
+	default:
+		return usageError(fmt.Sprintf("unknown link command %q", args[0]), linkUsage)
+	}
+}
+
+func runLinkExtract(args []string, stdout io.Writer) error {
+	var textInput string
+	var path string
+	pathSet := false
+	jsonOutput := false
+	for i := 0; i < len(args); i++ {
+		arg := strings.TrimSpace(args[i])
+		switch strings.ToLower(arg) {
+		case "":
+			continue
+		case "help", "-h", "--help":
+			fmt.Fprint(stdout, linkUsage)
+			return nil
+		case "--json":
+			jsonOutput = true
+		case "--text":
+			value, next, err := readLinkFlagValue(args, i, "--text")
+			if err != nil {
+				return err
+			}
+			textInput = value
+			i = next
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return usageError(fmt.Sprintf("unknown link extract argument %q", arg), linkUsage)
+			}
+			if pathSet {
+				return usageError("link extract accepts at most one path", linkUsage)
+			}
+			path = arg
+			pathSet = true
+		}
+	}
+	if strings.TrimSpace(textInput) != "" && pathSet {
+		return usageError("link extract accepts either --text or path, not both", linkUsage)
+	}
+	input := textInput
+	source := "text"
+	if pathSet {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return commandError(exitFailure, fmt.Sprintf("link extract failed: read %q: %v", path, err), "")
+		}
+		input = string(body)
+		source = path
+	}
+	if strings.TrimSpace(input) == "" {
+		return usageError("link extract requires --text or path", linkUsage)
+	}
+	links := linkextract.Extract(input)
+	if len(links) == 0 {
+		return commandError(exitFailure, "link extract failed: no supported survey links found", "")
+	}
+	return printLinkExtract(stdout, source, links, jsonOutput)
+}
+
+func readLinkFlagValue(args []string, index int, flag string) (string, int, error) {
+	next := index + 1
+	if next >= len(args) || strings.TrimSpace(args[next]) == "" {
+		return "", index, usageError(fmt.Sprintf("%s requires a value", flag), linkUsage)
+	}
+	return args[next], next, nil
 }
 
 func runConfig(args []string, stdout io.Writer) error {
@@ -733,6 +821,38 @@ type wjxHTTPDryRunSummary struct {
 	DraftCount int                            `json:"draft_count"`
 	Drafts     []app.WJXHTTPSubmissionPreview `json:"drafts"`
 	Network    string                         `json:"network"`
+}
+
+type linkExtractSummary struct {
+	Source  string                  `json:"source"`
+	Count   int                     `json:"count"`
+	Links   []linkextract.Candidate `json:"links"`
+	Network string                  `json:"network"`
+}
+
+func printLinkExtract(stdout io.Writer, source string, links []linkextract.Candidate, jsonOutput bool) error {
+	summary := linkExtractSummary{
+		Source:  source,
+		Count:   len(links),
+		Links:   links,
+		Network: "disabled (local extract)",
+	}
+	if jsonOutput {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetEscapeHTML(false)
+		return encoder.Encode(summary)
+	}
+	fmt.Fprintln(stdout, "link extract:")
+	fmt.Fprintf(stdout, "  source: %s\n", summary.Source)
+	fmt.Fprintf(stdout, "  count: %d\n", summary.Count)
+	fmt.Fprintln(stdout, "  links:")
+	for _, link := range summary.Links {
+		fmt.Fprintf(stdout, "    - provider: %s\n", link.Provider)
+		fmt.Fprintf(stdout, "      url: %s\n", link.URL)
+		fmt.Fprintf(stdout, "      raw: %s\n", link.Raw)
+	}
+	fmt.Fprintf(stdout, "  network: %s\n", summary.Network)
+	return nil
 }
 
 func printDryRunPlan(stdout io.Writer, path string, plan runner.Plan, jsonOutput bool) error {
