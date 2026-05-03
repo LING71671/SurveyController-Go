@@ -37,6 +37,7 @@ go run ./cmd/surveyctl version
 go run ./cmd/surveyctl link extract --text "https://www.wjx.cn/vm/example.aspx"
 go run ./cmd/surveyctl config validate examples/run.yaml
 go run ./cmd/surveyctl config generate --fixture internal/provider/wjx/testdata/survey.html --url https://www.wjx.cn/vm/example.aspx
+go run ./cmd/surveyctl config generate --fixture internal/provider/wjx/testdata/survey.html --url https://www.wjx.cn/vm/example.aspx --json
 go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
@@ -78,7 +79,7 @@ go run ./cmd/surveyctl link extract --text "问卷 https://www.wjx.cn/vm/example
 go run ./cmd/surveyctl link extract .\example-survey\qr.txt --json
 ```
 
-`config generate` 会为文本题生成可编辑的 `options.text` 骨架，默认使用 `mode: fixed` 和 `sample answer`，后续可改成 `words`、`digits`、`phone` 或 `template` 文本策略。
+`config generate` 默认输出适合人工编辑的 YAML；加 `--json` 时输出同一份配置的机器可读 JSON，适合脚本、CI 和后续轻量 GUI 外壳。它会为文本题生成可编辑的 `options.text` 骨架，默认使用 `mode: fixed` 和 `sample answer`，后续可改成 `words`、`digits`、`phone` 或 `template` 文本策略。
 
 当前 `surveyctl run` 已经支持两个本地预览入口：
 

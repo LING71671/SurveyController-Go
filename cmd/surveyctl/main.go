@@ -32,7 +32,7 @@ Usage:
   surveyctl version
   surveyctl link extract [path] [--text <value>] [--json]
   surveyctl config validate [path]
-  surveyctl config generate [--provider <id|auto>] --fixture <path> --url <url>
+  surveyctl config generate [--provider <id|auto>] --fixture <path> --url <url> [--json]
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
@@ -52,7 +52,7 @@ Commands:
 
 const configUsage = `Usage:
   surveyctl config validate [path]
-  surveyctl config generate [--provider <id|auto>] --fixture <path> --url <url>
+  surveyctl config generate [--provider <id|auto>] --fixture <path> --url <url> [--json]
 `
 
 const linkUsage = `Usage:
@@ -244,6 +244,7 @@ func runConfigGenerate(args []string, stdout io.Writer) error {
 	var providerID string
 	var fixturePath string
 	var rawURL string
+	jsonOutput := false
 	for i := 0; i < len(args); i++ {
 		arg := strings.TrimSpace(args[i])
 		switch strings.ToLower(arg) {
@@ -273,6 +274,8 @@ func runConfigGenerate(args []string, stdout io.Writer) error {
 			}
 			rawURL = value
 			i = next
+		case "--json":
+			jsonOutput = true
 		default:
 			return usageError(fmt.Sprintf("unknown config generate argument %q", arg), configUsage)
 		}
@@ -287,6 +290,11 @@ func runConfigGenerate(args []string, stdout io.Writer) error {
 	cfg, err := generateConfigFromFixture(providerID, fixturePath, rawURL)
 	if err != nil {
 		return commandError(exitFailure, fmt.Sprintf("config generate failed: %v", err), "")
+	}
+	if jsonOutput {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(cfg)
 	}
 	encoder := yaml.NewEncoder(stdout)
 	if err := encoder.Encode(cfg); err != nil {

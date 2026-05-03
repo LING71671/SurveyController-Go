@@ -227,6 +227,36 @@ func TestRunConfigGenerateDetectsProviderFromURL(t *testing.T) {
 	}
 }
 
+func TestRunConfigGenerateJSONPrintsMachineReadableConfig(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
+
+	code := run([]string{"config", "generate", "--fixture", fixture, "--url", "https://www.wjx.cn/vm/example.aspx", "--json"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(config generate json) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	var cfg config.RunConfig
+	if err := json.Unmarshal(stdout.Bytes(), &cfg); err != nil {
+		t.Fatalf("decode generated json: %v; output=%q", err, stdout.String())
+	}
+	if cfg.Survey.Provider != "wjx" || cfg.Survey.URL != "https://www.wjx.cn/vm/example.aspx" {
+		t.Fatalf("Survey = %+v, want detected wjx provider", cfg.Survey)
+	}
+	if len(cfg.Questions) != 5 {
+		t.Fatalf("len(Questions) = %d, want 5", len(cfg.Questions))
+	}
+	if !strings.Contains(stdout.String(), `"schema_version": 1`) {
+		t.Fatalf("stdout = %q, want indented json config", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "schema_version:") {
+		t.Fatalf("stdout = %q, want json not yaml", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
 func TestRunConfigGenerateAcceptsAutoProvider(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

@@ -55,10 +55,11 @@ CI smoke 使用：
 
 ## config-generate-smoke.ps1
 
-三平台配置生成 smoke。它会分别读取问卷星、腾讯问卷和 Credamo 的本地 fixture，运行 `surveyctl config generate`，并检查 provider、题型、文本骨架和矩阵权重等关键输出：
+三平台配置生成 smoke。它会分别读取问卷星、腾讯问卷和 Credamo 的本地 fixture，运行 `surveyctl config generate`，并检查 provider、题型、文本骨架和矩阵权重等关键输出。脚本默认检查 YAML；需要机器可读配置时可以直接给 `config generate` 增加 `--json`：
 
 ```powershell
 .\scripts\config-generate-smoke.ps1
+go run ./cmd/surveyctl config generate --fixture internal/provider/wjx/testdata/survey.html --url https://www.wjx.cn/vm/example.aspx --json
 ```
 
 这个脚本只读取仓库内 fixture，不访问网络。`verify-local.ps1` 默认会调用它，确保 `v1.0` 的三平台配置生成闭环不会在后续推进中退化。

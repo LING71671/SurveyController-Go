@@ -66,7 +66,7 @@ go run ./cmd/surveyctl link extract .\example-survey\qr.txt --json
 
 这一步适合作为配置生成前的轻量预检。后续如果要支持图片二维码，应作为可选能力进入，不影响 core 的纯文本路径。
 
-`surveyctl config generate` 会在未传 `--provider` 或传入 `--provider auto` 时根据 `--url` 自动识别平台。显式传入 `--provider wjx|tencent|credamo` 时仍以显式值为准，方便调试 fixture。三平台 fixture 输出由 `scripts/config-generate-smoke.ps1` 覆盖，并被默认本地验证调用。
+`surveyctl config generate` 会在未传 `--provider` 或传入 `--provider auto` 时根据 `--url` 自动识别平台。显式传入 `--provider wjx|tencent|credamo` 时仍以显式值为准，方便调试 fixture。默认输出 YAML；加 `--json` 时输出同一份配置的机器可读 JSON，适合脚本、CI 和后续轻量 GUI 外壳。三平台 fixture 输出由 `scripts/config-generate-smoke.ps1` 覆盖，并被默认本地验证调用。
 
 生成配置遇到 `text` 或 `textarea` 题时，会写入一个可编辑的 `options.text` 骨架。默认是 `mode: fixed` 和 `sample answer`，确保生成配置能直接进入 answer plan；后续可按题目需要改成 `words`、`digits`、`phone` 或 `template`。
 
