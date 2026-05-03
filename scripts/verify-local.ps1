@@ -58,6 +58,17 @@ try {
         if (($configOutput -join "`n") -notmatch "mode:\s*fixed" -or ($configOutput -join "`n") -notmatch "sample answer") {
             Write-Error "generated config did not contain a text answer skeleton"
         }
+        if (($configOutput -join "`n") -notmatch "matrix_weights") {
+            Write-Error "generated config did not contain matrix_weights"
+        }
+
+        $previewOutput = & go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+        if (($previewOutput -join "`n") -notmatch "q5:\s*q5_r1:5;q5_r2:1") {
+            Write-Error "wjx http preview did not contain the matrix answer draft"
+        }
     }
 
     if (-not $SkipStress) {

@@ -38,6 +38,7 @@ func TestParserFixturesProduceStandardSurveys(t *testing.T) {
 				domain.QuestionKindMultiple,
 				domain.QuestionKindText,
 				domain.QuestionKindRating,
+				domain.QuestionKindMatrix,
 			},
 		},
 		{
@@ -126,6 +127,10 @@ func TestParserFixturesPreserveProviderSignals(t *testing.T) {
 		first := survey.Questions[0]
 		if !first.Required || len(first.Options) != 2 || first.Options[0].Value != "browser" {
 			t.Fatalf("first WJX question = %+v, want required browser option", first)
+		}
+		matrix := survey.Questions[4]
+		if matrix.Kind != domain.QuestionKindMatrix || len(matrix.Rows) != 2 || len(matrix.Options) != 2 {
+			t.Fatalf("matrix WJX question = %+v, want rows and options", matrix)
 		}
 	})
 

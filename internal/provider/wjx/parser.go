@@ -115,6 +115,7 @@ func parseQuestion(node *html.Node, fallbackNumber int) (domain.QuestionDefiniti
 		Kind:     kind,
 		Required: attr(node, "data-required") == "true",
 		Options:  parseOptions(node),
+		Rows:     parseRows(node),
 		ProviderRaw: map[string]any{
 			"data_question": id,
 		},
@@ -169,6 +170,25 @@ func parseOptions(node *html.Node) []domain.OptionDefinition {
 		})
 	}
 	return options
+}
+
+func parseRows(node *html.Node) []domain.OptionDefinition {
+	rowNodes := findAll(node, func(n *html.Node) bool {
+		return attr(n, "data-row") != ""
+	})
+	rows := make([]domain.OptionDefinition, 0, len(rowNodes))
+	for _, rowNode := range rowNodes {
+		id := strings.TrimSpace(attr(rowNode, "data-row"))
+		label := strings.TrimSpace(textContent(rowNode))
+		rows = append(rows, domain.OptionDefinition{
+			ID:    id,
+			Label: label,
+			ProviderRaw: map[string]any{
+				"data_row": id,
+			},
+		})
+	}
+	return rows
 }
 
 func firstTextByAttr(root *html.Node, name string) string {

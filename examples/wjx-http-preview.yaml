@@ -31,3 +31,15 @@ questions:
       weights:
         - option_id: q4_5
           weight: 1
+  - id: q5
+    kind: matrix
+    options:
+      matrix_weights:
+        - row_id: q5_r1
+          weights:
+            - option_id: q5_c5
+              weight: 1
+        - row_id: q5_r2
+          weights:
+            - option_id: q5_c1
+              weight: 1

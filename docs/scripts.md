@@ -83,7 +83,7 @@ CI smoke 使用：
 
 ## wjx-http-dryrun-stress.ps1
 
-问卷星 HTTP dry-run 压测入口。它会读取本地 fixture，经过 runner、worker pool、答案计划和 HTTP pipeline，最后由本地 dry-run executor 记录 draft，不访问网络：
+问卷星 HTTP dry-run 压测入口。它会读取本地 fixture，经过 runner、worker pool、答案计划和 HTTP pipeline，最后由本地 dry-run executor 记录 draft，不访问网络。当前示例 fixture 覆盖矩阵题，draft 中会保留行级答案，便于脚本检查矩阵每一行的映射：
 
 ```powershell
 .\scripts\wjx-http-dryrun-stress.ps1

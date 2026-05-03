@@ -34,8 +34,8 @@ func TestParseHTML(t *testing.T) {
 	if survey.Title != "问卷星 HTML 样例" {
 		t.Fatalf("Title = %q, want fixture title", survey.Title)
 	}
-	if len(survey.Questions) != 4 {
-		t.Fatalf("len(Questions) = %d, want 4", len(survey.Questions))
+	if len(survey.Questions) != 5 {
+		t.Fatalf("len(Questions) = %d, want 5", len(survey.Questions))
 	}
 
 	first := survey.Questions[0]
@@ -49,6 +49,17 @@ func TestParseHTML(t *testing.T) {
 	text := survey.Questions[2]
 	if text.Kind != domain.QuestionKindText || len(text.Options) != 0 {
 		t.Fatalf("text question = %+v, want text without options", text)
+	}
+
+	matrix := survey.Questions[4]
+	if matrix.ID != "q5" || matrix.Kind != domain.QuestionKindMatrix {
+		t.Fatalf("matrix question = %+v, want q5 matrix", matrix)
+	}
+	if len(matrix.Rows) != 2 || matrix.Rows[0].ID != "q5_r1" || matrix.Rows[1].Label != "性能" {
+		t.Fatalf("matrix rows = %+v, want parsed data-row entries", matrix.Rows)
+	}
+	if len(matrix.Options) != 2 || matrix.Options[0].Value != "1" || matrix.Options[1].Value != "5" {
+		t.Fatalf("matrix options = %+v, want parsed matrix columns", matrix.Options)
 	}
 }
 

@@ -559,7 +559,7 @@ func TestRunWJXHTTPPreviewPrintsSummary(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(wjx http preview) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	for _, want := range []string{"wjx http preview:", "provider: wjx", "mode: http", "method: POST", "endpoint: https://www.wjx.cn/joinnew/processjq.ashx", "survey_id: example", "q1: browser", "q2: q2_a,q2_b", "q4: 5", "network: disabled (preview)"} {
+	for _, want := range []string{"wjx http preview:", "provider: wjx", "mode: http", "method: POST", "endpoint: https://www.wjx.cn/joinnew/processjq.ashx", "survey_id: example", "q1: browser", "q2: q2_a,q2_b", "q4: 5", "q5: q5_r1:5;q5_r2:1", "network: disabled (preview)"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -596,6 +596,9 @@ func TestRunWJXHTTPPreviewJSONPrintsSummary(t *testing.T) {
 	if values := form["q4"].([]any); values[0] != "5" {
 		t.Fatalf("form = %+v, want q4 rating answer", form)
 	}
+	if values := form["q5"].([]any); values[0] != "q5_r1:5;q5_r2:1" {
+		t.Fatalf("form = %+v, want q5 matrix answer", form)
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
@@ -611,7 +614,7 @@ func TestRunWJXHTTPDryRunPrintsSummary(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(wjx http dry-run) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	for _, want := range []string{"wjx http dry-run:", "provider: wjx", "mode: http", "target: 2", "successes: 2", "completed: 2", "draft_count: 2", "first_draft:", "q1: browser", "q2: q2_a,q2_b", "q4: 5", "network: disabled (dry-run)"} {
+	for _, want := range []string{"wjx http dry-run:", "provider: wjx", "mode: http", "target: 2", "successes: 2", "completed: 2", "draft_count: 2", "first_draft:", "q1: browser", "q2: q2_a,q2_b", "q4: 5", "q5: q5_r1:5;q5_r2:1", "network: disabled (dry-run)"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
@@ -647,6 +650,9 @@ func TestRunWJXHTTPDryRunJSONPrintsSummary(t *testing.T) {
 	form := first["form"].(map[string]any)
 	if values := form["q1"].([]any); values[0] != "browser" {
 		t.Fatalf("form = %+v, want q1 browser", form)
+	}
+	if values := form["q5"].([]any); values[0] != "q5_r1:5;q5_r2:1" {
+		t.Fatalf("form = %+v, want q5 matrix answer", form)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
@@ -938,6 +944,18 @@ questions:
       weights:
         - option_id: q4_5
           weight: 1
+  - id: q5
+    kind: matrix
+    options:
+      matrix_weights:
+        - row_id: q5_r1
+          weights:
+            - option_id: q5_c5
+              weight: 1
+        - row_id: q5_r2
+          weights:
+            - option_id: q5_c1
+              weight: 1
 `
 }
 
