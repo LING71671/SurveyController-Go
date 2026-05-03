@@ -25,6 +25,13 @@ questions:
           weight: 1
         - option_id: q2_c
           weight: 0
+  - id: q3
+    kind: text
+    options:
+      text:
+        mode: fixed
+        values:
+          - local text answer
   - id: q4
     kind: rating
     options:

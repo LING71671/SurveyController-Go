@@ -69,6 +69,9 @@ try {
         if (($previewOutput -join "`n") -notmatch "q5:\s*q5_r1:5;q5_r2:1") {
             Write-Error "wjx http preview did not contain the matrix answer draft"
         }
+        if (($previewOutput -join "`n") -notmatch "q3:\s*local text answer") {
+            Write-Error "wjx http preview did not contain the text answer draft"
+        }
 
         $commandArgs = New-SurveyControllerPowerShellFileArgs -Command $powerShellCommand -File "scripts/config-generate-smoke.ps1"
         & $powerShellCommand.Source @commandArgs
