@@ -120,14 +120,14 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl
 
 `--events jsonl` 面向后续脚本、CI 和轻量 GUI 外壳；`v1.0` 前不会把 GUI 放进核心，但事件流会保持足够稳定，让 UI 只做薄订阅层。当前 mock run 和 WJX HTTP dry-run 共用这套事件协议。
 
-问卷星 HTTP 路径目前提供本地预览入口，用于检查 answer plan 到 HTTP form 的映射，不执行网络请求。预览会校验配置计划和本地 fixture 的 URL、题目 ID、题型是否一致：
+问卷星 HTTP 路径目前提供本地预览入口，用于检查 answer plan 到 HTTP form 的映射，不执行网络请求。预览会校验配置计划和本地 fixture 的 URL、题目 ID、题型是否一致；示例 fixture 覆盖单选、多选、文本、评分和矩阵题，矩阵题会以行级答案进入 draft：
 
 ```powershell
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html
 go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html --json
 ```
 
-需要经过完整 runner/worker pool 但仍然禁用网络时，可以使用问卷星 HTTP dry-run。它会从本地 fixture 构建 survey schema，运行 answer plan 和 HTTP pipeline，并用本地 dry-run executor 记录 draft：
+需要经过完整 runner/worker pool 但仍然禁用网络时，可以使用问卷星 HTTP dry-run。它会从本地 fixture 构建 survey schema，运行 answer plan 和 HTTP pipeline，并用本地 dry-run executor 记录 draft；当前本地 smoke 会检查矩阵题输出形如 `q5_r1:5;q5_r2:1`：
 
 ```powershell
 go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --fixture internal/provider/wjx/testdata/survey.html

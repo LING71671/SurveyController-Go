@@ -96,7 +96,7 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 
 `--dry-run` 用于验证配置能否编译成运行计划；`--mock` 会实际经过答案计划生成、worker pool、运行状态和事件输出，但 submitter 是本地 mock，不访问任何平台。
 
-`--wjx-http-preview` 用于验证问卷星 answer plan 能否编译成 HTTP draft。它只读取本地 HTML fixture，不执行网络请求；输出中会明确标注 `network: disabled (preview)`。预览会校验配置计划和 fixture 的 provider、mode、URL、题目 ID、题型是否一致，避免把不匹配的配置误认为可提交路径。
+`--wjx-http-preview` 用于验证问卷星 answer plan 能否编译成 HTTP draft。它只读取本地 HTML fixture，不执行网络请求；输出中会明确标注 `network: disabled (preview)`。预览会校验配置计划和 fixture 的 provider、mode、URL、题目 ID、题型是否一致，避免把不匹配的配置误认为可提交路径。当前 fixture 覆盖矩阵行解析和行级答案映射，本地 smoke 会检查 `q5_r1:5;q5_r2:1` 这类矩阵 draft。
 
 `--wjx-http-dry-run` 用于验证问卷星 HTTP 路径的完整本地执行闭环。它会经过 runner、worker pool、答案计划生成、HTTP pipeline 和本地 dry-run executor，输出成功数、完成数、吞吐、资源指标、draft 数量和首个 draft 详情；JSON 输出会包含完整 drafts。该命令仍然只使用本地 fixture，输出中会明确标注 `network: disabled (dry-run)`。需要观察进度时可以使用 `--events text` 或 `--events jsonl`，事件语义和 mock run 保持一致。
 
@@ -108,7 +108,7 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 
 `scripts/wjx-http-dryrun-stress-matrix.ps1` 用于一次性跑 smoke、预算和可选 1000x1000 profile。日常快速检查可加 `-SkipFull`，完整 profile 留给发布前或专门性能验证。
 
-CI 的质量检查会运行 `scripts/wjx-http-dryrun-stress-matrix.ps1 -SkipFull`，用于覆盖 PowerShell 脚本、CLI 参数、本地 fixture 和 WJX HTTP dry-run runner 的基础兼容性；完整 1000x1000 profile 仍由本地显式参数触发。
+CI 的质量检查会运行 `scripts/wjx-http-dryrun-stress-matrix.ps1 -SkipFull`，用于覆盖 PowerShell 脚本、CLI 参数、本地 fixture、矩阵答案映射和 WJX HTTP dry-run runner 的基础兼容性；完整 1000x1000 profile 仍由本地显式参数触发。
 
 常用压测入口见 [性能与压测](performance.md)。默认脚本会运行 1000 target / 1000 concurrency 的本地 mock；`-Json` 输出最终 JSON 汇总，`-FailEvery` 可验证失败阈值和停止行为。
 
