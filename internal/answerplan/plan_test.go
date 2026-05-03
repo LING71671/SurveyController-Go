@@ -16,6 +16,7 @@ func TestQuestionAnswerHelpers(t *testing.T) {
 		QuestionID: " q1 ",
 		OptionIDs:  []string{"a"},
 		Value:      " 1 ",
+		Rows:       []RowAnswer{{RowID: " r1 ", OptionIDs: []string{"b"}, Value: " 2 "}},
 	}
 	if answer.NormalizedQuestionID() != "q1" {
 		t.Fatalf("NormalizedQuestionID() = %q, want q1", answer.NormalizedQuestionID())
@@ -25,5 +26,11 @@ func TestQuestionAnswerHelpers(t *testing.T) {
 	}
 	if answer.DirectValue() != "1" {
 		t.Fatalf("DirectValue() = %q, want 1", answer.DirectValue())
+	}
+	if !answer.HasRows() {
+		t.Fatal("HasRows() = false, want true")
+	}
+	if answer.Rows[0].NormalizedRowID() != "r1" || !answer.Rows[0].HasOptionIDs() || answer.Rows[0].DirectValue() != "2" {
+		t.Fatalf("row helpers = %+v, want normalized row answer", answer.Rows[0])
 	}
 }

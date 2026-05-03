@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"strings"
 
 	"github.com/LING71671/SurveyController-Go/internal/answer"
@@ -21,6 +22,12 @@ type compiledQuestionPlan struct {
 	picker     answer.WeightedPicker
 	selector   answer.SelectionPicker
 	textAnswer answer.TextAnswerRule
+	matrixRows []compiledMatrixRow
+}
+
+type compiledMatrixRow struct {
+	id     string
+	picker answer.WeightedPicker
 }
 
 func BuildAnswerPlan(rng *rand.Rand, questions []QuestionPlan) (answerplan.Plan, error) {
@@ -130,6 +137,12 @@ func compileQuestionPlan(question QuestionPlan) (compiledQuestionPlan, error) {
 			return compiledQuestionPlan{}, fmt.Errorf("question %q text answer: %w", questionID, err)
 		}
 		return compiledQuestionPlan{id: questionID, kind: kind, textAnswer: question.TextAnswer}, nil
+	case domain.QuestionKindMatrix:
+		rows, err := compileMatrixRows(question.MatrixWeights)
+		if err != nil {
+			return compiledQuestionPlan{}, fmt.Errorf("question %q matrix rows: %w", questionID, err)
+		}
+		return compiledQuestionPlan{id: questionID, kind: kind, matrixRows: rows}, nil
 	default:
 		return compiledQuestionPlan{}, fmt.Errorf("question %q kind %q is not supported for answer plan builder", questionID, kind)
 	}
@@ -155,9 +168,55 @@ func (q compiledQuestionPlan) buildAnswer(rng *rand.Rand) (answerplan.QuestionAn
 			return answerplan.QuestionAnswer{}, fmt.Errorf("question %q text answer: %w", q.id, err)
 		}
 		return answerplan.QuestionAnswer{QuestionID: q.id, Value: value}, nil
+	case domain.QuestionKindMatrix:
+		rows, err := q.buildMatrixRows(rng)
+		if err != nil {
+			return answerplan.QuestionAnswer{}, fmt.Errorf("question %q matrix answer: %w", q.id, err)
+		}
+		return answerplan.QuestionAnswer{QuestionID: q.id, Rows: rows}, nil
 	default:
 		return answerplan.QuestionAnswer{}, fmt.Errorf("question %q kind %q is not supported for answer plan builder", q.id, q.kind)
 	}
+}
+
+func (q compiledQuestionPlan) buildMatrixRows(rng *rand.Rand) ([]answerplan.RowAnswer, error) {
+	if len(q.matrixRows) == 0 {
+		return nil, fmt.Errorf("rows are required")
+	}
+	rows := make([]answerplan.RowAnswer, 0, len(q.matrixRows))
+	for _, row := range q.matrixRows {
+		optionID, err := row.picker.Pick(rng)
+		if err != nil {
+			return nil, fmt.Errorf("row %q pick one: %w", row.id, err)
+		}
+		rows = append(rows, answerplan.RowAnswer{RowID: row.id, OptionIDs: []string{optionID}})
+	}
+	return rows, nil
+}
+
+func compileMatrixRows(matrixWeights map[string][]answer.OptionWeight) ([]compiledMatrixRow, error) {
+	if len(matrixWeights) == 0 {
+		return nil, fmt.Errorf("matrix_weights are required")
+	}
+	rowIDs := make([]string, 0, len(matrixWeights))
+	for rowID := range matrixWeights {
+		rowID = strings.TrimSpace(rowID)
+		if rowID == "" {
+			return nil, fmt.Errorf("row id is required")
+		}
+		rowIDs = append(rowIDs, rowID)
+	}
+	sort.Strings(rowIDs)
+
+	rows := make([]compiledMatrixRow, 0, len(rowIDs))
+	for _, rowID := range rowIDs {
+		picker, err := answer.NewWeightedPicker(matrixWeights[rowID])
+		if err != nil {
+			return nil, fmt.Errorf("row %q weights: %w", rowID, err)
+		}
+		rows = append(rows, compiledMatrixRow{id: rowID, picker: picker})
+	}
+	return rows, nil
 }
 
 func selectionRuleFromOptions(options map[string]any) answer.SelectionRule {
