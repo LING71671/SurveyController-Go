@@ -31,12 +31,14 @@ pwsh -File scripts/verify-local.ps1
 - `go test ./...`
 - `go vet ./...`
 - `staticcheck ./...`
+- CLI local precheck smoke：`link extract` + `config generate` provider auto-detection
 - 轻量 mock stress matrix
 
 常用参数：
 
 ```powershell
 .\scripts\verify-local.ps1 -SkipStress
+.\scripts\verify-local.ps1 -SkipCLISmoke
 .\scripts\verify-local.ps1 -SkipStaticcheck
 .\scripts\verify-local.ps1 -IncludeFullStress
 .\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress
@@ -49,7 +51,7 @@ CI smoke 使用：
 .\scripts\verify-local.ps1 -SkipGoChecks -SkipStaticcheck -SkipStress -IncludeWJXHTTPDryRunStress
 ```
 
-`-SkipGoChecks` 只用于上层流程已经单独跑过 Go 检查的场景，例如 CI quality job。普通本地提交前不建议跳过 Go 检查。
+`-SkipGoChecks` 只用于上层流程已经单独跑过 Go 检查的场景，例如 CI quality job。普通本地提交前不建议跳过 Go 检查。`-SkipCLISmoke` 会跳过链接预检和配置生成的 CLI smoke，通常只在调试脚本自身时使用。
 
 ## mock-stress.ps1
 
@@ -106,6 +108,7 @@ CI smoke 使用：
 
 - 日常提交前：`.\scripts\verify-local.ps1`
 - 只看 Go 代码：`.\scripts\verify-local.ps1 -SkipStress`
+- 只跳过 CLI smoke：`.\scripts\verify-local.ps1 -SkipCLISmoke`
 - WJX dry-run 快速回归：`.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress`
 - 发布前性能检查：`.\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress -IncludeFullStress`
 - 调试单个 profile：直接运行对应的 `*-stress.ps1`
