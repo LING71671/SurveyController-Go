@@ -28,7 +28,59 @@ type TemplateRule struct {
 	Slots    map[string][]string
 }
 
+type TextAnswerMode string
+
+const (
+	TextAnswerModeFixed    TextAnswerMode = "fixed"
+	TextAnswerModeWords    TextAnswerMode = "words"
+	TextAnswerModeDigits   TextAnswerMode = "digits"
+	TextAnswerModePhone    TextAnswerMode = "phone"
+	TextAnswerModeTemplate TextAnswerMode = "template"
+)
+
+type TextAnswerRule struct {
+	Mode     TextAnswerMode
+	Values   []string
+	Words    TextRule
+	Digits   DigitsRule
+	Phone    PhoneRule
+	Template TemplateRule
+}
+
 var templateSlotRE = regexp.MustCompile(`\{([A-Za-z0-9_]+)\}`)
+
+func RandomTextAnswer(rng *rand.Rand, rule TextAnswerRule) (string, error) {
+	if rng == nil {
+		return "", fmt.Errorf("rng is required")
+	}
+	mode := rule.Mode
+	if mode == "" {
+		mode = inferTextAnswerMode(rule)
+	}
+	switch mode {
+	case TextAnswerModeFixed:
+		values := cleanWords(rule.Values)
+		if len(values) == 0 {
+			return "", fmt.Errorf("fixed values are required")
+		}
+		return values[rng.Intn(len(values))], nil
+	case TextAnswerModeWords:
+		return RandomText(rng, rule.Words)
+	case TextAnswerModeDigits:
+		return RandomDigits(rng, rule.Digits)
+	case TextAnswerModePhone:
+		return RandomPhoneLike(rng, rule.Phone)
+	case TextAnswerModeTemplate:
+		return RandomTemplateText(rng, rule.Template)
+	default:
+		return "", fmt.Errorf("unsupported text answer mode %q", rule.Mode)
+	}
+}
+
+func ValidateTextAnswerRule(rule TextAnswerRule) error {
+	_, err := RandomTextAnswer(rand.New(rand.NewSource(1)), rule)
+	return err
+}
 
 func RandomText(rng *rand.Rand, rule TextRule) (string, error) {
 	if rng == nil {
@@ -63,6 +115,25 @@ func RandomText(rng *rand.Rand, rule TextRule) (string, error) {
 		words = append(words, ruleWords[rng.Intn(len(ruleWords))])
 	}
 	return strings.Join(words, separator), nil
+}
+
+func inferTextAnswerMode(rule TextAnswerRule) TextAnswerMode {
+	if len(rule.Values) > 0 {
+		return TextAnswerModeFixed
+	}
+	if strings.TrimSpace(rule.Template.Template) != "" {
+		return TextAnswerModeTemplate
+	}
+	if rule.Digits.Length > 0 || strings.TrimSpace(rule.Digits.Prefix) != "" {
+		return TextAnswerModeDigits
+	}
+	if len(rule.Phone.Prefixes) > 0 {
+		return TextAnswerModePhone
+	}
+	if len(rule.Words.Words) > 0 {
+		return TextAnswerModeWords
+	}
+	return ""
 }
 
 func RandomInt(rng *rand.Rand, min int, max int) (int, error) {

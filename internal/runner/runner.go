@@ -34,6 +34,8 @@ type QuestionPlan struct {
 	Options       map[string]any
 	Weights       []answer.OptionWeight
 	MatrixWeights map[string][]answer.OptionWeight
+	TextAnswer    answer.TextAnswerRule
+	HasTextAnswer bool
 }
 
 type Runner struct{}
@@ -77,6 +79,10 @@ func CompilePlan(cfg config.RunConfig) (Plan, error) {
 		if err != nil {
 			return Plan{}, fmt.Errorf("question %q matrix weights: %w", questionID, err)
 		}
+		textAnswer, hasTextAnswer, err := config.QuestionTextAnswerRule(question)
+		if err != nil {
+			return Plan{}, fmt.Errorf("question %q text answer: %w", questionID, err)
+		}
 		plan.Questions = append(plan.Questions, QuestionPlan{
 			ID:            questionID,
 			Kind:          strings.TrimSpace(question.Kind),
@@ -84,6 +90,8 @@ func CompilePlan(cfg config.RunConfig) (Plan, error) {
 			Options:       cloneOptions(question.Options),
 			Weights:       weights,
 			MatrixWeights: matrixWeights,
+			TextAnswer:    textAnswer,
+			HasTextAnswer: hasTextAnswer,
 		})
 	}
 	if err := New().ValidatePlan(plan); err != nil {

@@ -142,6 +142,32 @@ func TestCompilePlanParsesQuestionWeights(t *testing.T) {
 	}
 }
 
+func TestCompilePlanParsesTextAnswerRule(t *testing.T) {
+	cfg := config.DefaultRunConfig()
+	cfg.Survey.URL = "https://example.com/survey"
+	cfg.Survey.Provider = "mock"
+	cfg.Questions = []config.QuestionConfig{
+		{
+			ID:   "q1",
+			Kind: "text",
+			Options: map[string]any{
+				"text": map[string]any{
+					"mode":   "fixed",
+					"values": []any{"alpha"},
+				},
+			},
+		},
+	}
+
+	plan, err := CompilePlan(cfg)
+	if err != nil {
+		t.Fatalf("CompilePlan() returned error: %v", err)
+	}
+	if !plan.Questions[0].HasTextAnswer || plan.Questions[0].TextAnswer.Values[0] != "alpha" {
+		t.Fatalf("TextAnswer = %+v/%t, want fixed alpha rule", plan.Questions[0].TextAnswer, plan.Questions[0].HasTextAnswer)
+	}
+}
+
 func TestCompilePlanRejectsInvalidQuestionWeights(t *testing.T) {
 	cfg := config.DefaultRunConfig()
 	cfg.Survey.URL = "https://example.com/survey"

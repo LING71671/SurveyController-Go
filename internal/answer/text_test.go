@@ -58,6 +58,79 @@ func TestRandomDigits(t *testing.T) {
 	}
 }
 
+func TestRandomTextAnswer(t *testing.T) {
+	tests := []struct {
+		name string
+		rule TextAnswerRule
+		want func(string) bool
+	}{
+		{
+			name: "fixed",
+			rule: TextAnswerRule{Mode: TextAnswerModeFixed, Values: []string{"alpha"}},
+			want: func(got string) bool { return got == "alpha" },
+		},
+		{
+			name: "words inferred",
+			rule: TextAnswerRule{Words: TextRule{Words: []string{"alpha", "beta"}, MinWords: 2, MaxWords: 2}},
+			want: func(got string) bool { return len(strings.Fields(got)) == 2 },
+		},
+		{
+			name: "digits",
+			rule: TextAnswerRule{Mode: TextAnswerModeDigits, Digits: DigitsRule{Length: 6, Prefix: "42"}},
+			want: func(got string) bool { return len(got) == 6 && strings.HasPrefix(got, "42") },
+		},
+		{
+			name: "phone",
+			rule: TextAnswerRule{Mode: TextAnswerModePhone, Phone: PhoneRule{Prefixes: []string{"177"}}},
+			want: func(got string) bool { return len(got) == 11 && strings.HasPrefix(got, "177") },
+		},
+		{
+			name: "template",
+			rule: TextAnswerRule{
+				Mode: TextAnswerModeTemplate,
+				Template: TemplateRule{
+					Template: "from {city}",
+					Slots:    map[string][]string{"city": {"shanghai"}},
+				},
+			},
+			want: func(got string) bool { return got == "from shanghai" },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := RandomTextAnswer(rand.New(rand.NewSource(1)), tt.rule)
+			if err != nil {
+				t.Fatalf("RandomTextAnswer() returned error: %v", err)
+			}
+			if !tt.want(got) {
+				t.Fatalf("RandomTextAnswer() = %q, did not satisfy expectation", got)
+			}
+		})
+	}
+}
+
+func TestRandomTextAnswerRejectsInvalidRules(t *testing.T) {
+	tests := []struct {
+		name string
+		rule TextAnswerRule
+		want string
+	}{
+		{name: "mode", rule: TextAnswerRule{Mode: "magic"}, want: "unsupported"},
+		{name: "fixed", rule: TextAnswerRule{Mode: TextAnswerModeFixed}, want: "values"},
+		{name: "inferred empty", rule: TextAnswerRule{}, want: "unsupported"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := RandomTextAnswer(rand.New(rand.NewSource(1)), tt.rule)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("RandomTextAnswer() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestRandomDigitsRejectsInvalidRules(t *testing.T) {
 	tests := []struct {
 		name string
