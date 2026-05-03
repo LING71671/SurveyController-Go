@@ -151,3 +151,4 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 - [脚本参考](docs/scripts.md)
 - [原项目分析](docs/discovery/original-project-analysis.md)
 - [运行闭环对齐复盘](docs/discovery/original-runtime-alignment-2026-04-30.md)
+- [2026-05-03 原项目对齐复盘](docs/discovery/original-alignment-2026-05-03.md)
