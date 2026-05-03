@@ -20,6 +20,7 @@ type httpQuestionSpec struct {
 	id      string
 	kind    domain.QuestionKind
 	options map[string]string
+	rows    map[string]struct{}
 }
 
 func BuildHTTPSubmissionDraftFromAnswerPlan(survey domain.SurveyDefinition, plan answerplan.Plan) (HTTPSubmissionDraft, error) {
@@ -100,6 +101,7 @@ func compileHTTPQuestionSpec(question domain.QuestionDefinition) (httpQuestionSp
 		id:      strings.TrimSpace(question.ID),
 		kind:    question.Kind,
 		options: make(map[string]string, len(question.Options)),
+		rows:    make(map[string]struct{}, len(question.Rows)),
 	}
 	for _, option := range question.Options {
 		id, value, err := compileHTTPOptionValue(option)
@@ -111,6 +113,15 @@ func compileHTTPQuestionSpec(question domain.QuestionDefinition) (httpQuestionSp
 				return httpQuestionSpec{}, fmt.Errorf("question %q option %q is defined more than once", spec.id, id)
 			}
 			spec.options[id] = value
+		}
+	}
+	for _, row := range question.Rows {
+		id := strings.TrimSpace(row.ID)
+		if id != "" {
+			if _, exists := spec.rows[id]; exists {
+				return httpQuestionSpec{}, fmt.Errorf("question %q row %q is defined more than once", spec.id, id)
+			}
+			spec.rows[id] = struct{}{}
 		}
 	}
 	return spec, nil
@@ -148,6 +159,8 @@ func (q httpQuestionSpec) mapAnswer(planned answerplan.QuestionAnswer) (string, 
 		return q.mapMultipleAnswer(planned)
 	case domain.QuestionKindRating:
 		return q.mapRatingAnswer(planned)
+	case domain.QuestionKindMatrix:
+		return q.mapMatrixAnswer(planned)
 	default:
 		return "", fmt.Errorf("kind %q is not supported for HTTP answer plan", q.kind)
 	}
@@ -197,6 +210,50 @@ func (q httpQuestionSpec) mapRatingAnswer(planned answerplan.QuestionAnswer) (st
 		return q.optionValue(planned.OptionIDs[0])
 	}
 	return directAnswerValue(planned.Value)
+}
+
+func (q httpQuestionSpec) mapMatrixAnswer(planned answerplan.QuestionAnswer) (string, error) {
+	if planned.HasOptionIDs() {
+		return "", fmt.Errorf("matrix answer expects row answers")
+	}
+	if !planned.HasRows() {
+		return directAnswerValue(planned.Value)
+	}
+
+	seen := map[string]bool{}
+	values := make([]string, 0, len(planned.Rows))
+	for _, row := range planned.Rows {
+		rowID := row.NormalizedRowID()
+		if rowID == "" {
+			return "", fmt.Errorf("row id is required")
+		}
+		if len(q.rows) > 0 {
+			if _, ok := q.rows[rowID]; !ok {
+				return "", fmt.Errorf("row %q is not defined", rowID)
+			}
+		}
+		if seen[rowID] {
+			return "", fmt.Errorf("row %q is answered more than once", rowID)
+		}
+		seen[rowID] = true
+
+		value, err := q.mapMatrixRowValue(row)
+		if err != nil {
+			return "", fmt.Errorf("row %q: %w", rowID, err)
+		}
+		values = append(values, rowID+":"+value)
+	}
+	return strings.Join(values, ";"), nil
+}
+
+func (q httpQuestionSpec) mapMatrixRowValue(row answerplan.RowAnswer) (string, error) {
+	if len(row.OptionIDs) > 1 {
+		return "", fmt.Errorf("matrix row expects one option")
+	}
+	if row.HasOptionIDs() {
+		return q.optionValue(row.OptionIDs[0])
+	}
+	return directAnswerValue(row.Value)
 }
 
 func directAnswerValue(value string) (string, error) {
