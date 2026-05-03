@@ -78,6 +78,8 @@ go run ./cmd/surveyctl link extract --text "问卷 https://www.wjx.cn/vm/example
 go run ./cmd/surveyctl link extract .\example-survey\qr.txt --json
 ```
 
+`config generate` 会为文本题生成可编辑的 `options.text` 骨架，默认使用 `mode: fixed` 和 `sample answer`，后续可改成 `words`、`digits`、`phone` 或 `template` 文本策略。
+
 当前 `surveyctl run` 已经支持两个本地预览入口：
 
 - `--dry-run`：只编译配置和运行计划，不生成提交任务，不访问网络。

@@ -55,6 +55,9 @@ try {
         if (($configOutput -join "`n") -notmatch "provider:\s*wjx") {
             Write-Error "generated config did not contain provider: wjx"
         }
+        if (($configOutput -join "`n") -notmatch "mode:\s*fixed" -or ($configOutput -join "`n") -notmatch "sample answer") {
+            Write-Error "generated config did not contain a text answer skeleton"
+        }
     }
 
     if (-not $SkipStress) {

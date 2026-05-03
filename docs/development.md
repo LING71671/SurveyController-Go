@@ -68,6 +68,8 @@ go run ./cmd/surveyctl link extract .\example-survey\qr.txt --json
 
 `surveyctl config generate` 会在未传 `--provider` 或传入 `--provider auto` 时根据 `--url` 自动识别平台。显式传入 `--provider wjx|tencent|credamo` 时仍以显式值为准，方便调试 fixture。
 
+生成配置遇到 `text` 或 `textarea` 题时，会写入一个可编辑的 `options.text` 骨架。默认是 `mode: fixed` 和 `sample answer`，确保生成配置能直接进入 answer plan；后续可按题目需要改成 `words`、`digits`、`phone` 或 `template`。
+
 ## 运行预览
 
 `surveyctl run` 当前只开放不会访问网络的预览能力：
