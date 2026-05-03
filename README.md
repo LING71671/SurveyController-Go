@@ -101,6 +101,7 @@ go run ./cmd/surveyctl run --mock examples/mock-run.yaml --target 1000 --concurr
 .\scripts\wjx-http-dryrun-stress.ps1
 .\scripts\wjx-http-dryrun-stress-matrix.ps1 -SkipFull
 .\scripts\wjx-http-dryrun-stress.ps1 -Target 1000 -Concurrency 1000 -Json
+.\scripts\config-generate-smoke.ps1
 .\scripts\verify-local.ps1
 .\scripts\verify-local.ps1 -IncludeWJXHTTPDryRunStress
 ```
