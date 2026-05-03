@@ -64,6 +64,8 @@ go run ./cmd/surveyctl link extract .\example-survey\qr.txt --json
 
 这一步适合作为配置生成前的轻量预检。后续如果要支持图片二维码，应作为可选能力进入，不影响 core 的纯文本路径。
 
+`surveyctl config generate` 会在未传 `--provider` 或传入 `--provider auto` 时根据 `--url` 自动识别平台。显式传入 `--provider wjx|tencent|credamo` 时仍以显式值为准，方便调试 fixture。
+
 ## 运行预览
 
 `surveyctl run` 当前只开放不会访问网络的预览能力：
