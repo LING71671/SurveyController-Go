@@ -54,13 +54,21 @@ func TestBuildAnswerPlan(t *testing.T) {
 				Values: []string{"hello"},
 			},
 		},
+		{
+			ID:   "q6",
+			Kind: "matrix",
+			MatrixWeights: map[string][]answer.OptionWeight{
+				"row2": {{OptionID: "no", Weight: 1}},
+				"row1": {{OptionID: "yes", Weight: 1}},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("BuildAnswerPlan() returned error: %v", err)
 	}
 
-	if len(got.Answers) != 5 {
-		t.Fatalf("len(Answers) = %d, want 5", len(got.Answers))
+	if len(got.Answers) != 6 {
+		t.Fatalf("len(Answers) = %d, want 6", len(got.Answers))
 	}
 	if got.Answers[0].QuestionID != "q1" || got.Answers[0].OptionIDs[0] != "b" {
 		t.Fatalf("first answer = %+v, want q1=b", got.Answers[0])
@@ -73,6 +81,13 @@ func TestBuildAnswerPlan(t *testing.T) {
 	}
 	if got.Answers[4].QuestionID != "q5" || got.Answers[4].Value != "hello" {
 		t.Fatalf("text answer = %+v, want q5 hello", got.Answers[4])
+	}
+	matrix := got.Answers[5]
+	if matrix.QuestionID != "q6" || len(matrix.Rows) != 2 {
+		t.Fatalf("matrix answer = %+v, want q6 with two rows", matrix)
+	}
+	if matrix.Rows[0].RowID != "row1" || matrix.Rows[0].OptionIDs[0] != "yes" || matrix.Rows[1].RowID != "row2" || matrix.Rows[1].OptionIDs[0] != "no" {
+		t.Fatalf("matrix rows = %+v, want sorted row answers", matrix.Rows)
 	}
 }
 
@@ -204,6 +219,7 @@ func TestCompileAnswerPlanBuilderRejectsInvalidInput(t *testing.T) {
 		{name: "question id", questions: []QuestionPlan{{Kind: "single"}}, want: "question id"},
 		{name: "text rule", questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "text answer"},
 		{name: "weights", questions: []QuestionPlan{{ID: "q1", Kind: "single"}}, want: "weights"},
+		{name: "matrix rows", questions: []QuestionPlan{{ID: "q1", Kind: "matrix"}}, want: "matrix_weights"},
 		{
 			name: "multiple rule",
 			questions: []QuestionPlan{{
@@ -253,6 +269,7 @@ func TestBuildAnswerPlanRejectsInvalidInput(t *testing.T) {
 		{name: "question id", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{Kind: "single"}}, want: "question id"},
 		{name: "text rule", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "text answer"},
 		{name: "weights", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{ID: "q1", Kind: "single"}}, want: "weights"},
+		{name: "matrix rows", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{ID: "q1", Kind: "matrix"}}, want: "matrix_weights"},
 		{
 			name: "multiple rule",
 			rng:  rand.New(rand.NewSource(1)),
