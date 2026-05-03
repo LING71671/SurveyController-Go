@@ -63,11 +63,39 @@ func TestFromSurveyDefinitionBuildsDefaultRunConfig(t *testing.T) {
 	if len(weights) != 2 || weights[0]["option_id"] != "a" || weights[0]["weight"] != 1 {
 		t.Fatalf("weights = %+v, want default weights for options", weights)
 	}
-	if len(cfg.Questions[1].Options) != 0 {
-		t.Fatalf("text question options = %+v, want empty options", cfg.Questions[1].Options)
+	textOptions, ok := cfg.Questions[1].Options["text"].(map[string]any)
+	if !ok {
+		t.Fatalf("text question options = %+v, want text answer skeleton", cfg.Questions[1].Options)
+	}
+	values, ok := textOptions["values"].([]string)
+	if textOptions["mode"] != "fixed" || !ok || len(values) != 1 || values[0] != "sample answer" {
+		t.Fatalf("text skeleton = %+v, want fixed sample answer", textOptions)
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("generated config did not validate: %v", err)
+	}
+}
+
+func TestFromSurveyDefinitionBuildsTextAreaSkeleton(t *testing.T) {
+	survey := domain.SurveyDefinition{
+		Provider: domain.ProviderWJX,
+		Title:    "Text area survey",
+		URL:      "https://www.wjx.cn/vm/example.aspx",
+		Questions: []domain.QuestionDefinition{
+			{
+				ID:    "q1",
+				Title: "Long comment",
+				Kind:  domain.QuestionKindTextarea,
+			},
+		},
+	}
+
+	cfg, err := FromSurveyDefinition(survey)
+	if err != nil {
+		t.Fatalf("FromSurveyDefinition() returned error: %v", err)
+	}
+	if _, ok := cfg.Questions[0].Options["text"].(map[string]any); !ok {
+		t.Fatalf("textarea options = %+v, want text answer skeleton", cfg.Questions[0].Options)
 	}
 }
 

@@ -37,6 +37,9 @@ func defaultQuestionOptions(question domain.QuestionDefinition) map[string]any {
 	if len(question.Options) > 0 {
 		options["weights"] = defaultOptionWeights(question.Options)
 	}
+	if isTextQuestion(question.Kind) {
+		options["text"] = defaultTextAnswerSkeleton()
+	}
 	if len(question.Rows) > 0 && len(question.Options) > 0 {
 		rows := make([]map[string]any, 0, len(question.Rows))
 		for _, row := range question.Rows {
@@ -54,6 +57,17 @@ func defaultQuestionOptions(question domain.QuestionDefinition) map[string]any {
 		}
 	}
 	return options
+}
+
+func isTextQuestion(kind domain.QuestionKind) bool {
+	return kind == domain.QuestionKindText || kind == domain.QuestionKindTextarea
+}
+
+func defaultTextAnswerSkeleton() map[string]any {
+	return map[string]any{
+		"mode":   "fixed",
+		"values": []string{"sample answer"},
+	}
 }
 
 func defaultOptionWeights(options []domain.OptionDefinition) []map[string]any {
