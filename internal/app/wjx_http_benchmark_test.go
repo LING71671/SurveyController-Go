@@ -77,6 +77,13 @@ questions:
           weight: 1
         - option_id: c
           weight: 0
+  - id: q3
+    kind: text
+    options:
+      text:
+        mode: fixed
+        values:
+          - benchmark answer
   - id: q4
     kind: rating
     options:
@@ -121,6 +128,11 @@ func benchmarkWJXHTTPSurvey() domain.SurveyDefinition {
 					{ID: "b", Label: "B", Value: "B"},
 					{ID: "c", Label: "C", Value: "C"},
 				},
+			},
+			{
+				ID:    "q3",
+				Title: "Text",
+				Kind:  domain.QuestionKindText,
 			},
 			{
 				ID:    "q4",
@@ -168,8 +180,11 @@ func TestBenchmarkWJXHTTPDryRunFixturesStayCompatible(t *testing.T) {
 		t.Fatalf("drafts = %d, want 3", len(result.Drafts))
 	}
 	firstDraft := result.Drafts[0]
-	if firstDraft.AnswerCount != 4 {
-		t.Fatalf("AnswerCount = %d, want 4", firstDraft.AnswerCount)
+	if firstDraft.AnswerCount != 5 {
+		t.Fatalf("AnswerCount = %d, want 5", firstDraft.AnswerCount)
+	}
+	if got := firstDraft.Form["q3"][0]; got != "benchmark answer" {
+		t.Fatalf("text draft = %q, want direct mapped text answer", got)
 	}
 	if got := firstDraft.Form["q5"][0]; got != "row1:5;row2:3" {
 		t.Fatalf("matrix draft = %q, want row-level mapped answer", got)

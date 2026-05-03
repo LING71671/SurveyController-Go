@@ -91,7 +91,7 @@ go run ./cmd/surveyctl run --wjx-http-preview examples/wjx-http-preview.yaml --f
 
 预览会经过配置编译、答案计划生成、问卷星 HTTP form 映射和 plan/fixture 兼容性校验，但不会调用 HTTP executor。输出中的 `network: disabled (preview)` 是这个阶段的安全边界。
 
-当前示例覆盖单选、多选、文本、评分和矩阵题，用于观察 answer plan 到 `processjq.ashx` form 的映射。矩阵题在本地 draft 中使用稳定的行级表示，例如 `q5_r1:5;q5_r2:1`，便于脚本检查每一行是否都被计划和映射。后续真实网络运行必须继续复用 provider 能力门控，并在登录、验证、风控、设备次数上限或频控信号出现时停止并报告。
+当前示例覆盖单选、多选、文本、评分和矩阵题，用于观察 answer plan 到 `processjq.ashx` form 的映射。文本题会以直接值进入本地 draft；矩阵题使用稳定的行级表示，例如 `q5_r1:5;q5_r2:1`，便于脚本检查每一行是否都被计划和映射。后续真实网络运行必须继续复用 provider 能力门控，并在登录、验证、风控、设备次数上限或频控信号出现时停止并报告。
 
 ## WJX HTTP Dry-Run
 

@@ -17,6 +17,7 @@ func TestBuildHTTPAnswers(t *testing.T) {
 			{QuestionID: "q2", OptionIDs: []string{"a", "c"}},
 			{QuestionID: "q3", OptionIDs: []string{"score5"}},
 			{QuestionID: "q4", OptionIDs: []string{"city2"}},
+			{QuestionID: "q5", Value: "local text"},
 			{QuestionID: "q6", Rows: []answerplan.RowAnswer{
 				{RowID: "row1", OptionIDs: []string{"agree"}},
 				{RowID: "row2", OptionIDs: []string{"neutral"}},
@@ -32,6 +33,7 @@ func TestBuildHTTPAnswers(t *testing.T) {
 		"q2": "A,C",
 		"q3": "5",
 		"q4": "shanghai",
+		"q5": "local text",
 		"q6": "row1:5;row2:3",
 	}
 	if len(got) != len(want) {
@@ -192,7 +194,7 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 			name:   "unsupported kind",
 			survey: survey,
 			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
-				{QuestionID: "q5", Value: "hello"},
+				{QuestionID: "q7", Value: "hello"},
 			}},
 			want: "not supported",
 		},
@@ -227,6 +229,22 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 				{QuestionID: "q3", Value: " "},
 			}},
 			want: "answer value",
+		},
+		{
+			name:   "text option ids",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q5", OptionIDs: []string{"a"}},
+			}},
+			want: "direct value",
+		},
+		{
+			name:   "text row answers",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q5", Rows: []answerplan.RowAnswer{{RowID: "row1", Value: "x"}}},
+			}},
+			want: "row answers",
 		},
 		{
 			name:   "matrix top-level options",
@@ -384,6 +402,11 @@ func testAnswerPlanSurvey() domain.SurveyDefinition {
 					{ID: "agree", Label: "Agree", Value: "5"},
 					{ID: "neutral", Label: "Neutral", Value: "3"},
 				},
+			},
+			{
+				ID:    "q7",
+				Title: "Unsupported",
+				Kind:  domain.QuestionKindUnknown,
 			},
 		},
 	}

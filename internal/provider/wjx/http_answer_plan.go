@@ -161,6 +161,8 @@ func (q httpQuestionSpec) mapAnswer(planned answerplan.QuestionAnswer) (string, 
 		return q.mapRatingAnswer(planned)
 	case domain.QuestionKindMatrix:
 		return q.mapMatrixAnswer(planned)
+	case domain.QuestionKindText, domain.QuestionKindTextarea:
+		return q.mapTextAnswer(planned)
 	default:
 		return "", fmt.Errorf("kind %q is not supported for HTTP answer plan", q.kind)
 	}
@@ -254,6 +256,17 @@ func (q httpQuestionSpec) mapMatrixRowValue(row answerplan.RowAnswer) (string, e
 		return q.optionValue(row.OptionIDs[0])
 	}
 	return directAnswerValue(row.Value)
+}
+
+func (q httpQuestionSpec) mapTextAnswer(planned answerplan.QuestionAnswer) (string, error) {
+	_ = q
+	if planned.HasOptionIDs() {
+		return "", fmt.Errorf("text answer expects direct value")
+	}
+	if planned.HasRows() {
+		return "", fmt.Errorf("text answer does not support row answers")
+	}
+	return directAnswerValue(planned.Value)
 }
 
 func directAnswerValue(value string) (string, error) {
