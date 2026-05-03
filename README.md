@@ -36,7 +36,7 @@ go vet ./...
 go run ./cmd/surveyctl version
 go run ./cmd/surveyctl link extract --text "https://www.wjx.cn/vm/example.aspx"
 go run ./cmd/surveyctl config validate examples/run.yaml
-go run ./cmd/surveyctl config generate --provider wjx --fixture internal/provider/wjx/testdata/survey.html --url https://www.wjx.cn/vm/example.aspx
+go run ./cmd/surveyctl config generate --fixture internal/provider/wjx/testdata/survey.html --url https://www.wjx.cn/vm/example.aspx
 go run ./cmd/surveyctl run --dry-run examples/run.yaml
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --seed 7
 go run ./cmd/surveyctl run --mock examples/mock-run.yaml --events jsonl

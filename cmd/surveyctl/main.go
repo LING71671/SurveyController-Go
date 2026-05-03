@@ -17,6 +17,7 @@ import (
 	"github.com/LING71671/SurveyController-Go/internal/domain"
 	"github.com/LING71671/SurveyController-Go/internal/linkextract"
 	"github.com/LING71671/SurveyController-Go/internal/logging"
+	"github.com/LING71671/SurveyController-Go/internal/provider/builtin"
 	"github.com/LING71671/SurveyController-Go/internal/provider/credamo"
 	"github.com/LING71671/SurveyController-Go/internal/provider/tencent"
 	"github.com/LING71671/SurveyController-Go/internal/provider/wjx"
@@ -31,7 +32,7 @@ Usage:
   surveyctl version
   surveyctl link extract [path] [--text <value>] [--json]
   surveyctl config validate [path]
-  surveyctl config generate --provider <id> --fixture <path> --url <url>
+  surveyctl config generate [--provider <id|auto>] --fixture <path> --url <url>
   surveyctl run --dry-run [path] [--json] [--target <n>] [--concurrency <n>]
   surveyctl run --mock [path] [--json] [--seed <n>] [--mock-fail-every <n>] [--events <text|jsonl>] [--target <n>] [--concurrency <n>] [--min-throughput <n>] [--max-heap-delta <bytes>] [--max-goroutines <n>] [--expect-failure-threshold <true|false>]
   surveyctl run --wjx-http-preview [path] --fixture <html> [--json] [--seed <n>] [--target <n>] [--concurrency <n>]
@@ -51,7 +52,7 @@ Commands:
 
 const configUsage = `Usage:
   surveyctl config validate [path]
-  surveyctl config generate --provider <id> --fixture <path> --url <url>
+  surveyctl config generate [--provider <id|auto>] --fixture <path> --url <url>
 `
 
 const linkUsage = `Usage:
@@ -276,9 +277,6 @@ func runConfigGenerate(args []string, stdout io.Writer) error {
 			return usageError(fmt.Sprintf("unknown config generate argument %q", arg), configUsage)
 		}
 	}
-	if strings.TrimSpace(providerID) == "" {
-		return usageError("config generate requires --provider", configUsage)
-	}
 	if strings.TrimSpace(fixturePath) == "" {
 		return usageError("config generate requires --fixture", configUsage)
 	}
@@ -299,7 +297,7 @@ func runConfigGenerate(args []string, stdout io.Writer) error {
 }
 
 func generateConfigFromFixture(providerID string, fixturePath string, rawURL string) (config.RunConfig, error) {
-	id, err := domain.ParseProviderID(providerID)
+	id, err := resolveConfigGenerateProvider(providerID, rawURL)
 	if err != nil {
 		return config.RunConfig{}, err
 	}
@@ -325,6 +323,18 @@ func generateConfigFromFixture(providerID string, fixturePath string, rawURL str
 	}
 	survey.URL = strings.TrimSpace(rawURL)
 	return config.FromSurveyDefinition(survey)
+}
+
+func resolveConfigGenerateProvider(providerID string, rawURL string) (domain.ProviderID, error) {
+	trimmed := strings.TrimSpace(providerID)
+	if trimmed != "" && !strings.EqualFold(trimmed, "auto") {
+		return domain.ParseProviderID(trimmed)
+	}
+	id, ok := builtin.DetectProvider(rawURL)
+	if !ok {
+		return domain.ProviderUnknown, fmt.Errorf("detect provider from url %q: unsupported provider", rawURL)
+	}
+	return id, nil
 }
 
 func parseWJXFixture(fixturePath string, rawURL string) (domain.SurveyDefinition, error) {

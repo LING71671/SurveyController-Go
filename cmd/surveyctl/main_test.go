@@ -206,19 +206,45 @@ func TestRunConfigGenerateFromFixtures(t *testing.T) {
 	}
 }
 
-func TestRunConfigGenerateRequiresProvider(t *testing.T) {
+func TestRunConfigGenerateDetectsProviderFromURL(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	fixture := filepath.Join("..", "..", "internal", "provider", "wjx", "testdata", "survey.html")
 
-	code := run([]string{"config", "generate", "--fixture", "survey.html", "--url", "https://example.com"}, &stdout, &stderr)
-	if code != exitUsage {
-		t.Fatalf("run(config generate missing provider) exit code = %d, want %d", code, exitUsage)
+	code := run([]string{"config", "generate", "--fixture", fixture, "--url", "https://www.wjx.cn/vm/example.aspx"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(config generate auto provider) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "requires --provider") {
-		t.Fatalf("stderr = %q, want provider requirement", stderr.String())
+	var cfg config.RunConfig
+	if err := yaml.Unmarshal(stdout.Bytes(), &cfg); err != nil {
+		t.Fatalf("decode generated yaml: %v; output=%q", err, stdout.String())
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	if cfg.Survey.Provider != "wjx" || cfg.Survey.URL != "https://www.wjx.cn/vm/example.aspx" {
+		t.Fatalf("Survey = %+v, want detected wjx provider", cfg.Survey)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunConfigGenerateAcceptsAutoProvider(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	fixture := filepath.Join("..", "..", "internal", "provider", "tencent", "testdata", "survey_api.json")
+
+	code := run([]string{"config", "generate", "--provider", "auto", "--fixture", fixture, "--url", "https://wj.qq.com/s2/example"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(config generate provider auto) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	var cfg config.RunConfig
+	if err := yaml.Unmarshal(stdout.Bytes(), &cfg); err != nil {
+		t.Fatalf("decode generated yaml: %v; output=%q", err, stdout.String())
+	}
+	if cfg.Survey.Provider != "tencent" {
+		t.Fatalf("Survey.Provider = %q, want tencent", cfg.Survey.Provider)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }
 
@@ -229,6 +255,22 @@ func TestRunConfigGenerateRejectsUnsupportedProvider(t *testing.T) {
 	code := run([]string{"config", "generate", "--provider", "nope", "--fixture", "survey.html", "--url", "https://example.com"}, &stdout, &stderr)
 	if code != exitFailure {
 		t.Fatalf("run(config generate unsupported provider) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stderr.String(), "unsupported provider") {
+		t.Fatalf("stderr = %q, want unsupported provider", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunConfigGenerateRejectsUnknownAutoProviderURL(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"config", "generate", "--fixture", "survey.html", "--url", "https://example.com"}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(config generate unknown auto provider) exit code = %d, want %d", code, exitFailure)
 	}
 	if !strings.Contains(stderr.String(), "unsupported provider") {
 		t.Fatalf("stderr = %q, want unsupported provider", stderr.String())
