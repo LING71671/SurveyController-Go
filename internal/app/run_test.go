@@ -87,11 +87,11 @@ questions:
 `
 }
 
-func writeRunConfig(t *testing.T, body string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "survey.yaml")
+func writeRunConfig(tb testing.TB, body string) string {
+	tb.Helper()
+	path := filepath.Join(tb.TempDir(), "survey.yaml")
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
+		tb.Fatalf("write config: %v", err)
 	}
 	return path
 }

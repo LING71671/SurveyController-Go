@@ -111,6 +111,12 @@ go run ./cmd/surveyctl run --wjx-http-dry-run examples/wjx-http-preview.yaml --f
 
 text 输出只展示汇总和首个 draft，避免高并发 dry-run 时刷屏；JSON 输出包含完整 `drafts`，适合脚本检查 answer plan 到 form 的稳定性，包括矩阵题的行级答案。输出中的 `network: disabled (dry-run)` 是安全边界。
 
+需要观察完整 Go 热路径的分配基线时，可以运行 WJX HTTP dry-run benchmark。它覆盖 runner、答案计划、HTTP draft 映射、本地 dry-run executor 和矩阵题行级答案：
+
+```powershell
+go test -bench BenchmarkRunWJXHTTPDryRun -benchmem ./internal/app
+```
+
 `--events text|jsonl` 可用于观察 dry-run 期间的 runner 事件。高并发 profile 中建议优先使用 `--json` 汇总或脚本预算；事件流更适合小规模诊断和后续轻量 UI 订阅。
 
 WJX HTTP dry-run 支持和 mock run 相同的预算参数。预算失败时 CLI 会先输出 dry-run 报告，再以非零退出码返回失败原因，便于 CI 和脚本保留诊断信息。
