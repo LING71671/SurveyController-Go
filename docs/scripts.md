@@ -31,7 +31,7 @@ pwsh -File scripts/verify-local.ps1
 - `go test ./...`
 - `go vet ./...`
 - `staticcheck ./...`
-- CLI local precheck smoke：`link extract` + `config generate` provider auto-detection + generated text answer skeleton
+- CLI local precheck smoke：`link extract`、WJX HTTP preview 矩阵 draft、三平台 `config generate` fixture 输出
 - 轻量 mock stress matrix
 
 常用参数：
@@ -51,7 +51,17 @@ CI smoke 使用：
 .\scripts\verify-local.ps1 -SkipGoChecks -SkipStaticcheck -SkipStress -IncludeWJXHTTPDryRunStress
 ```
 
-`-SkipGoChecks` 只用于上层流程已经单独跑过 Go 检查的场景，例如 CI quality job。普通本地提交前不建议跳过 Go 检查。`-SkipCLISmoke` 会跳过链接预检和配置生成的 CLI smoke，通常只在调试脚本自身时使用。
+`-SkipGoChecks` 只用于上层流程已经单独跑过 Go 检查的场景，例如 CI quality job。普通本地提交前不建议跳过 Go 检查。`-SkipCLISmoke` 会跳过链接预检、WJX HTTP preview 和配置生成的 CLI smoke，通常只在调试脚本自身时使用。
+
+## config-generate-smoke.ps1
+
+三平台配置生成 smoke。它会分别读取问卷星、腾讯问卷和 Credamo 的本地 fixture，运行 `surveyctl config generate`，并检查 provider、题型、文本骨架和矩阵权重等关键输出：
+
+```powershell
+.\scripts\config-generate-smoke.ps1
+```
+
+这个脚本只读取仓库内 fixture，不访问网络。`verify-local.ps1` 默认会调用它，确保 `v1.0` 的三平台配置生成闭环不会在后续推进中退化。
 
 ## mock-stress.ps1
 
