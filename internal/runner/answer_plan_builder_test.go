@@ -45,13 +45,22 @@ func TestBuildAnswerPlan(t *testing.T) {
 				{OptionID: "city2", Weight: 1},
 			},
 		},
+		{
+			ID:            "q5",
+			Kind:          "text",
+			HasTextAnswer: true,
+			TextAnswer: answer.TextAnswerRule{
+				Mode:   answer.TextAnswerModeFixed,
+				Values: []string{"hello"},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("BuildAnswerPlan() returned error: %v", err)
 	}
 
-	if len(got.Answers) != 4 {
-		t.Fatalf("len(Answers) = %d, want 4", len(got.Answers))
+	if len(got.Answers) != 5 {
+		t.Fatalf("len(Answers) = %d, want 5", len(got.Answers))
 	}
 	if got.Answers[0].QuestionID != "q1" || got.Answers[0].OptionIDs[0] != "b" {
 		t.Fatalf("first answer = %+v, want q1=b", got.Answers[0])
@@ -61,6 +70,9 @@ func TestBuildAnswerPlan(t *testing.T) {
 	}
 	if got.Answers[2].OptionIDs[0] != "score5" || got.Answers[3].OptionIDs[0] != "city2" {
 		t.Fatalf("rating/dropdown answers = %+v/%+v, want score5/city2", got.Answers[2], got.Answers[3])
+	}
+	if got.Answers[4].QuestionID != "q5" || got.Answers[4].Value != "hello" {
+		t.Fatalf("text answer = %+v, want q5 hello", got.Answers[4])
 	}
 }
 
@@ -190,7 +202,7 @@ func TestCompileAnswerPlanBuilderRejectsInvalidInput(t *testing.T) {
 	}{
 		{name: "questions", want: "questions"},
 		{name: "question id", questions: []QuestionPlan{{Kind: "single"}}, want: "question id"},
-		{name: "kind", questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "not supported"},
+		{name: "text rule", questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "text answer"},
 		{name: "weights", questions: []QuestionPlan{{ID: "q1", Kind: "single"}}, want: "weights"},
 		{
 			name: "multiple rule",
@@ -239,7 +251,7 @@ func TestBuildAnswerPlanRejectsInvalidInput(t *testing.T) {
 		{name: "rng", questions: []QuestionPlan{{ID: "q1", Kind: "single"}}, want: "rng"},
 		{name: "questions", rng: rand.New(rand.NewSource(1)), want: "questions"},
 		{name: "question id", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{Kind: "single"}}, want: "question id"},
-		{name: "kind", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "not supported"},
+		{name: "text rule", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{ID: "q1", Kind: "text"}}, want: "text answer"},
 		{name: "weights", rng: rand.New(rand.NewSource(1)), questions: []QuestionPlan{{ID: "q1", Kind: "single"}}, want: "weights"},
 		{
 			name: "multiple rule",

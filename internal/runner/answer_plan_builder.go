@@ -16,10 +16,11 @@ type AnswerPlanBuilder struct {
 }
 
 type compiledQuestionPlan struct {
-	id       string
-	kind     domain.QuestionKind
-	picker   answer.WeightedPicker
-	selector answer.SelectionPicker
+	id         string
+	kind       domain.QuestionKind
+	picker     answer.WeightedPicker
+	selector   answer.SelectionPicker
+	textAnswer answer.TextAnswerRule
 }
 
 func BuildAnswerPlan(rng *rand.Rand, questions []QuestionPlan) (answerplan.Plan, error) {
@@ -121,6 +122,14 @@ func compileQuestionPlan(question QuestionPlan) (compiledQuestionPlan, error) {
 			return compiledQuestionPlan{}, fmt.Errorf("question %q weights: %w", questionID, err)
 		}
 		return compiledQuestionPlan{id: questionID, kind: kind, selector: selector}, nil
+	case domain.QuestionKindText, domain.QuestionKindTextarea:
+		if !question.HasTextAnswer {
+			return compiledQuestionPlan{}, fmt.Errorf("question %q text answer rule is required", questionID)
+		}
+		if err := answer.ValidateTextAnswerRule(question.TextAnswer); err != nil {
+			return compiledQuestionPlan{}, fmt.Errorf("question %q text answer: %w", questionID, err)
+		}
+		return compiledQuestionPlan{id: questionID, kind: kind, textAnswer: question.TextAnswer}, nil
 	default:
 		return compiledQuestionPlan{}, fmt.Errorf("question %q kind %q is not supported for answer plan builder", questionID, kind)
 	}
@@ -140,6 +149,12 @@ func (q compiledQuestionPlan) buildAnswer(rng *rand.Rand) (answerplan.QuestionAn
 			return answerplan.QuestionAnswer{}, fmt.Errorf("question %q pick many: %w", q.id, err)
 		}
 		return answerplan.QuestionAnswer{QuestionID: q.id, OptionIDs: selected.OptionIDs}, nil
+	case domain.QuestionKindText, domain.QuestionKindTextarea:
+		value, err := answer.RandomTextAnswer(rng, q.textAnswer)
+		if err != nil {
+			return answerplan.QuestionAnswer{}, fmt.Errorf("question %q text answer: %w", q.id, err)
+		}
+		return answerplan.QuestionAnswer{QuestionID: q.id, Value: value}, nil
 	default:
 		return answerplan.QuestionAnswer{}, fmt.Errorf("question %q kind %q is not supported for answer plan builder", q.id, q.kind)
 	}
