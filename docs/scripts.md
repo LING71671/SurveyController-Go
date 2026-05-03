@@ -31,7 +31,7 @@ pwsh -File scripts/verify-local.ps1
 - `go test ./...`
 - `go vet ./...`
 - `staticcheck ./...`
-- CLI local precheck smoke：`link extract` + `config generate` provider auto-detection
+- CLI local precheck smoke：`link extract` + `config generate` provider auto-detection + generated text answer skeleton
 - 轻量 mock stress matrix
 
 常用参数：
