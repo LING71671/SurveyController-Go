@@ -28,6 +28,8 @@ gofmt -w (git ls-files '*.go')
 
 默认会执行 `go test ./...`、`go vet ./...`、`staticcheck` 和轻量 mock stress matrix。需要完整 1000 并发 profile 时：
 
+默认验证还会运行一个本地 CLI smoke，覆盖 `surveyctl link extract` 和 `surveyctl config generate` 的 provider 自动识别链路。这个 smoke 不访问网络，只使用内置 fixture。
+
 ```powershell
 .\scripts\verify-local.ps1 -IncludeFullStress
 ```

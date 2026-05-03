@@ -2,6 +2,7 @@ param(
     [switch]$IncludeFullStress,
     [switch]$IncludeWJXHTTPDryRunStress,
     [switch]$SkipGoChecks,
+    [switch]$SkipCLISmoke,
     [switch]$SkipStaticcheck,
     [switch]$SkipStress
 )
@@ -32,6 +33,27 @@ try {
         & go run honnef.co/go/tools/cmd/staticcheck@latest ./...
         if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
+        }
+    }
+
+    if (-not $SkipCLISmoke) {
+        Write-Host "== cli local precheck smoke =="
+        $surveyURL = "https://www.wjx.cn/vm/example.aspx"
+        $linkOutput = & go run ./cmd/surveyctl link extract --text $surveyURL --json
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+        $linkSummary = $linkOutput | ConvertFrom-Json
+        if ($linkSummary.count -ne 1 -or $linkSummary.links[0].provider -ne "wjx" -or $linkSummary.network -ne "disabled (local extract)") {
+            Write-Error "unexpected link extract output: $linkOutput"
+        }
+
+        $configOutput = & go run ./cmd/surveyctl config generate --fixture internal/provider/wjx/testdata/survey.html --url $surveyURL
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+        if (($configOutput -join "`n") -notmatch "provider:\s*wjx") {
+            Write-Error "generated config did not contain provider: wjx"
         }
     }
 
