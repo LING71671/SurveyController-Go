@@ -36,13 +36,92 @@ func TestRunHelpListsV02CommandStubs(t *testing.T) {
 	if code != exitOK {
 		t.Fatalf("run(help) exit code = %d, want %d", code, exitOK)
 	}
-	for _, want := range []string{"config validate", "config generate", "doctor", "run", "version"} {
+	for _, want := range []string{"link extract", "config validate", "config generate", "doctor", "run", "version"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("help output = %q, want %q", stdout.String(), want)
 		}
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunLinkExtractFromText(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"link", "extract", "--text", "扫码 https://www.wjx.cn/vm/example.aspx。"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(link extract text) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	for _, want := range []string{"link extract:", "source: text", "count: 1", "provider: wjx", "url: https://www.wjx.cn/vm/example.aspx", "network: disabled (local extract)"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunLinkExtractFromFileJSON(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	path := filepath.Join(t.TempDir(), "qr.txt")
+	if err := os.WriteFile(path, []byte("腾讯 https://wj.qq.com/s2/123/hash"), 0o600); err != nil {
+		t.Fatalf("write link file: %v", err)
+	}
+
+	code := run([]string{"link", "extract", path, "--json"}, &stdout, &stderr)
+	if code != exitOK {
+		t.Fatalf("run(link extract file json) exit code = %d, want %d; stderr=%q", code, exitOK, stderr.String())
+	}
+	var summary map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &summary); err != nil {
+		t.Fatalf("json output decode failed: %v; output=%q", err, stdout.String())
+	}
+	if summary["source"] != path || summary["count"] != float64(1) || summary["network"] != "disabled (local extract)" {
+		t.Fatalf("summary = %+v, want source/count/network", summary)
+	}
+	links := summary["links"].([]any)
+	first := links[0].(map[string]any)
+	if first["provider"] != "tencent" || first["url"] != "https://wj.qq.com/s2/123/hash" {
+		t.Fatalf("first link = %+v, want tencent link", first)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunLinkExtractRejectsNoSupportedLinks(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"link", "extract", "--text", "https://example.com/survey"}, &stdout, &stderr)
+	if code != exitFailure {
+		t.Fatalf("run(link extract unsupported) exit code = %d, want %d", code, exitFailure)
+	}
+	if !strings.Contains(stderr.String(), "no supported survey links found") {
+		t.Fatalf("stderr = %q, want no supported links", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunLinkExtractRejectsTextAndPath(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"link", "extract", "links.txt", "--text", "https://www.wjx.cn/vm/example.aspx"}, &stdout, &stderr)
+	if code != exitUsage {
+		t.Fatalf("run(link extract text and path) exit code = %d, want %d", code, exitUsage)
+	}
+	if !strings.Contains(stderr.String(), "either --text or path") {
+		t.Fatalf("stderr = %q, want text/path conflict", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
 }
 
