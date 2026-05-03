@@ -17,6 +17,10 @@ func TestBuildHTTPAnswers(t *testing.T) {
 			{QuestionID: "q2", OptionIDs: []string{"a", "c"}},
 			{QuestionID: "q3", OptionIDs: []string{"score5"}},
 			{QuestionID: "q4", OptionIDs: []string{"city2"}},
+			{QuestionID: "q6", Rows: []answerplan.RowAnswer{
+				{RowID: "row1", OptionIDs: []string{"agree"}},
+				{RowID: "row2", OptionIDs: []string{"neutral"}},
+			}},
 		},
 	})
 	if err != nil {
@@ -28,6 +32,7 @@ func TestBuildHTTPAnswers(t *testing.T) {
 		"q2": "A,C",
 		"q3": "5",
 		"q4": "shanghai",
+		"q6": "row1:5;row2:3",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len(answers) = %d, want %d: %+v", len(got), len(want), got)
@@ -102,6 +107,25 @@ func TestBuildHTTPAnswersSupportsDirectValues(t *testing.T) {
 	}
 }
 
+func TestBuildHTTPAnswersSupportsMatrixRows(t *testing.T) {
+	survey := testAnswerPlanSurvey()
+
+	got, err := BuildHTTPAnswers(survey, answerplan.Plan{
+		Answers: []answerplan.QuestionAnswer{
+			{QuestionID: "q6", Rows: []answerplan.RowAnswer{
+				{RowID: "row1", OptionIDs: []string{"agree"}},
+				{RowID: "row2", Value: "4"},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildHTTPAnswers() returned error: %v", err)
+	}
+	if got["q6"] != "row1:5;row2:4" {
+		t.Fatalf("answers[q6] = %q, want row mapped matrix answer", got["q6"])
+	}
+}
+
 func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 	survey := testAnswerPlanSurvey()
 	tests := []struct {
@@ -157,6 +181,14 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 			want: "defined more than once",
 		},
 		{
+			name:   "duplicate matrix row definition",
+			survey: replaceQuestion(survey, 5, duplicateMatrixRowQuestion()),
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q6", Rows: []answerplan.RowAnswer{{RowID: "row1", OptionIDs: []string{"agree"}}}},
+			}},
+			want: "defined more than once",
+		},
+		{
 			name:   "unsupported kind",
 			survey: survey,
 			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
@@ -196,6 +228,49 @@ func TestBuildHTTPAnswersRejectsInvalidPlan(t *testing.T) {
 			}},
 			want: "answer value",
 		},
+		{
+			name:   "matrix top-level options",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q6", OptionIDs: []string{"agree"}},
+			}},
+			want: "row answers",
+		},
+		{
+			name:   "matrix unknown row",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q6", Rows: []answerplan.RowAnswer{{RowID: "missing", OptionIDs: []string{"agree"}}}},
+			}},
+			want: "not defined",
+		},
+		{
+			name:   "matrix duplicate row",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q6", Rows: []answerplan.RowAnswer{
+					{RowID: "row1", OptionIDs: []string{"agree"}},
+					{RowID: "row1", OptionIDs: []string{"neutral"}},
+				}},
+			}},
+			want: "more than once",
+		},
+		{
+			name:   "matrix row multiple options",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q6", Rows: []answerplan.RowAnswer{{RowID: "row1", OptionIDs: []string{"agree", "neutral"}}}},
+			}},
+			want: "expects one option",
+		},
+		{
+			name:   "matrix row unknown option",
+			survey: survey,
+			plan: answerplan.Plan{Answers: []answerplan.QuestionAnswer{
+				{QuestionID: "q6", Rows: []answerplan.RowAnswer{{RowID: "row1", OptionIDs: []string{"missing"}}}},
+			}},
+			want: "not defined",
+		},
 	}
 
 	for _, tt := range tests {
@@ -230,6 +305,21 @@ func duplicateOptionQuestion() domain.QuestionDefinition {
 		Options: []domain.OptionDefinition{
 			{ID: "a", Label: "A", Value: "1"},
 			{ID: "a", Label: "A again", Value: "2"},
+		},
+	}
+}
+
+func duplicateMatrixRowQuestion() domain.QuestionDefinition {
+	return domain.QuestionDefinition{
+		ID:    "q6",
+		Title: "Matrix",
+		Kind:  domain.QuestionKindMatrix,
+		Rows: []domain.OptionDefinition{
+			{ID: "row1", Label: "UX"},
+			{ID: "row1", Label: "UX again"},
+		},
+		Options: []domain.OptionDefinition{
+			{ID: "agree", Label: "Agree", Value: "5"},
 		},
 	}
 }
@@ -281,6 +371,19 @@ func testAnswerPlanSurvey() domain.SurveyDefinition {
 				ID:    "q5",
 				Title: "Text",
 				Kind:  domain.QuestionKindText,
+			},
+			{
+				ID:    "q6",
+				Title: "Matrix",
+				Kind:  domain.QuestionKindMatrix,
+				Rows: []domain.OptionDefinition{
+					{ID: "row1", Label: "UX"},
+					{ID: "row2", Label: "Performance"},
+				},
+				Options: []domain.OptionDefinition{
+					{ID: "agree", Label: "Agree", Value: "5"},
+					{ID: "neutral", Label: "Neutral", Value: "3"},
+				},
 			},
 		},
 	}
